@@ -154,17 +154,17 @@ const builder = new GraphBuilder(config.graph.type, config.graph.connectionOptio
 
 async function create(vertices) {
   for (const vertex of vertices) {
-    // const result = await builder.getOneVertex(vertex);
+    // const result = await builder.getVertex(vertex);
     const result = await builder.createVertex(vertex);
-    console.log('created ' + vertex.name + ': \n' + JSON.stringify(result, null, 2));
+    // console.log('created ' + vertex.name + ': \n' + JSON.stringify(result, null, 2));
   }
 }
 
-create(systemModuleVertices);
+// create(businessModuleVertices.concat(microServiceVertices).concat(systemModuleVertices));
 
 
-// builder.getOneVertex({ name: 'organization.console.routes.js', category: 'systemModule', microService: 'pm_console_svc' }).then(console.log);
-// builder.createEdge(
+builder.getVertex({ name: 'organization.console.routes.js', category: 'systemModule', microService: 'pm_console_svc' }).then(console.log);
+// builder.createEdgeByVertices(
 //   { name: 'addMemberRoles', category: 'component', microService: 'pm_console_svc', systemModule: 'organization.services.js' },
 //   { name: 'updateAll', category: 'component', microService: 'pm_console_svc', systemModule: 'repository.server.util.js' }
 // ).then(console.log);

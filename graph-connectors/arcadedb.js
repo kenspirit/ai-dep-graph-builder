@@ -4,7 +4,6 @@ const HEADER_SESSION_ID = 'arcadedb-session-id';
 
 class ArcadeDB {
   constructor({ host, port, database, username, password }) {
-    console.log('ArcadeDB constructor', { host, port, database, username, password });
     this.database = database;
 
     const instance = axios.create({
@@ -41,11 +40,11 @@ CREATE PROPERTY Component.sourceCode IF NOT EXISTS STRING;
 
 CREATE INDEX IF NOT EXISTS ON Component (microService, systemModule, name) UNIQUE;
 CREATE INDEX IF NOT EXISTS ON SystemModule (microService, name) UNIQUE;`;
-    await this.dbCommand('command', undefined, command, {}, 'sqlscript');
+    await this._dbCommand('command', undefined, command, {}, 'sqlscript');
     return true;
   }
 
-  async dbCommand(operation, sessionId, command, params = {}, language = 'sql') {
+  async _dbCommand(operation, sessionId, command, params = {}, language = 'sql') {
     let data;
     let opts;
 
@@ -90,7 +89,25 @@ CREATE INDEX IF NOT EXISTS ON SystemModule (microService, name) UNIQUE;`;
     }
   }
 
-  getVertexCommand(vertex) {
+  async startSession() {
+    return this._dbCommand('begin');
+  }
+
+  async commitSession(sessionId) {
+    if (!sessionId) {
+      return;
+    }
+    return this._dbCommand('commit', sessionId);
+  }
+
+  async rollbackSession(sessionId) {
+    if (!sessionId) {
+      return;
+    }
+    return this._dbCommand('rollback', sessionId);
+  }
+
+  _getVertexCommand(vertex) {
     switch (vertex.category) {
       case 'businessModule':
         return `CREATE VERTEX BusinessModule SET name = :name, type = :type;`;
@@ -103,61 +120,17 @@ CREATE INDEX IF NOT EXISTS ON SystemModule (microService, name) UNIQUE;`;
     }
   }
 
-  async createVertex(vertex, outerSessionId) {
-    let sessionId = outerSessionId;
-    const result = [];
-
-    try {
-      if (!sessionId) {
-        sessionId = await this.dbCommand('begin');
-      }
-
-      const command = this.getVertexCommand(vertex);
-      const [parent] = await this.dbCommand('command', sessionId, command, vertex);
-      if (parent) {
-        // Sample format
-        // {
-        //   '@rid': '#36:0',
-        //   '@type': 'MicroService',
-        //   '@cat': 'v',
-        //   name: 'pm_console_svc',
-        //   type: 'backend'
-        // }
-        result.push(parent);
-      } else {
-        throw new Error('Failed to create vertex');
-      }
-
-      if (vertex.dependencies) {
-        for (const dependency of vertex.dependencies) {
-          const child = await this.createVertex(dependency, sessionId);
-          for (const c of child) {
-            result.push(c);
-            const edge = await this.createEdge(parent, c, sessionId);
-            if (edge) {
-              result.push(edge);
-            }
-          }
-        }
-      }
-
-      if (!outerSessionId) {
-        await this.dbCommand('commit', sessionId);
-      }
-    } catch (error) {
-      let errorMessage = error.message;
-      try {
-        !!sessionId && await this.dbCommand('rollback', sessionId);
-      } catch (error) {
-        errorMessage = `Failed to rollback due to ${error.message} after: ${errorMessage}`;
-      }
-      throw new Error(`Failed to create vertex: ${errorMessage}`);
+  async createVertex(vertex, sessionId) {
+    const existingVertex = await this.getVertex(vertex);
+    if (existingVertex) {
+      return [existingVertex];
     }
 
-    return result;
+    const command = this._getVertexCommand(vertex);
+    return this._dbCommand('command', sessionId, command, vertex);
   }
 
-  getVertexQuery(vertex) {
+  _getVertexQuery(vertex) {
     switch (vertex.category) {
       case 'businessModule':
         return `SELECT FROM BusinessModule WHERE name = :name;`;
@@ -170,44 +143,32 @@ CREATE INDEX IF NOT EXISTS ON SystemModule (microService, name) UNIQUE;`;
     }
   }
 
-  async getVerticesByCategory(category) {
-    const result = await this.dbCommand('query', undefined, `SELECT FROM ${category};`);
-    return result;
-  }
-
-  async getOneVertex(vertex) {
-    const result = await this.dbCommand('query', undefined, this.getVertexQuery(vertex), vertex);
+  async getVertex(vertex) {
+    const result = await this._dbCommand('query', undefined, this._getVertexQuery(vertex), vertex);
     return result[0];
   }
 
-  getEdgeCommand(edge) {
-    return `CREATE EDGE Uses FROM ${edge.from} TO ${edge.to};`;
+  async getVerticesByCategory(category) {
+    const result = await this._dbCommand('query', undefined, `SELECT FROM ${category};`);
+    return result;
   }
 
-  async createEdge(fromVertex, toVertex, sessionId) {
-    const edge = { from: fromVertex['@rid'], to: toVertex['@rid'] };
-    const existingEdge = await this.getOneEdge(edge);
+  async createEdgeByVertices(fromVertex, toVertex, sessionId) {
+    const existingEdge = await this.getEdgeByVertices(fromVertex, toVertex);
     if (existingEdge) {
       return existingEdge;
     }
-    const command = this.getEdgeCommand(edge);
-    const [createdEdge] = await this.dbCommand('command', sessionId, command);
+    const command = `CREATE EDGE Uses FROM ${fromVertex['@rid']} TO ${toVertex['@rid']};`;
+    const [createdEdge] = await this._dbCommand('command', sessionId, command);
     return createdEdge;
   }
 
-  async dbQuery(operation, query, params = {}) {
+  async _dbQuery(operation, query) {
     try {
-      const { data: responseData, status, headers: responseHeaders } = await this.connector.get(`/${operation}/${this.database}/sql/`, data, opts);
+      const { data: responseData, status } = await this.connector.get(`/${operation}/${this.database}/sql/`);
       if (![200, 204].includes(status)) {
         // Data might carry error message & exception info
         throw new Error(`Failed to ${operation} with command: ${command}.  Response: ${JSON.stringify(responseData)}`);
-      }
-
-      if (operation === 'begin') {
-        if (responseHeaders && responseHeaders['arcadedb-session-id']) {
-          return responseHeaders['arcadedb-session-id'];
-        }
-        throw new Error('No session created');
       }
 
       if (responseData && responseData.result) {
@@ -221,16 +182,14 @@ CREATE INDEX IF NOT EXISTS ON SystemModule (microService, name) UNIQUE;`;
       if (error.response && error.response.data) {
         errorMessage = JSON.stringify(error.response.data);
       }
-      throw new Error(`Failed to ${operation}: sessionId - ${sessionId}; data - ${JSON.stringify(data)}; response - ${errorMessage}`);
+      throw new Error(`Failed to ${operation}: query - ${JSON.stringify(query)}; response - ${errorMessage}`);
     }
   }
 
-  getEdgeQuery(edge) {
-    return `SELECT FROM Uses WHERE @out = '${edge.from}' AND @in = '${edge.to}';`;
-  }
-
-  async getOneEdge(edge) {
-    const result = await this.dbCommand('query', undefined, this.getEdgeQuery(edge), edge);
+  async getEdgeByVertices(fromVertex, toVertex) {
+    const edge = { from: fromVertex['@rid'], to: toVertex['@rid'] };
+    const query = `SELECT FROM Uses WHERE @out = '${edge.from}' AND @in = '${edge.to}';`
+    const result = await this._dbCommand('query', undefined, query, edge);
     return result[0];
   }
 }

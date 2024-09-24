@@ -77,33 +77,84 @@ class GraphBuilder {
     }
   }
 
-  async createVertex(vertex) {
+  async createVertex(vertex, outerSessionId) {
     this._fillMissingProperties(vertex);
 
     const { error } = VERTEX_SCHEMA.validate(vertex);
     if (error) {
       throw new Error(error);
     }
-    const createdInfo = await this.connector.createVertex(vertex);
-    return createdInfo;
+
+    let sessionId = outerSessionId;
+    const result = [];
+
+    try {
+      if (!sessionId) {
+        sessionId = await this.connector.startSession();
+      }
+
+      const [parent] = await this.connector.createVertex(vertex, sessionId);
+      if (parent) {
+        result.push(parent);
+      } else {
+        throw new Error('Failed to create vertex');
+      }
+
+      if (vertex.dependencies) {
+        for (const dependency of vertex.dependencies) {
+          const child = await this.connector.createVertex(dependency, sessionId);
+          for (const c of child) {
+            result.push(c);
+            const edge = await this.connector.createEdgeByVertices(parent, c, sessionId);
+            if (edge) {
+              result.push(edge);
+            }
+          }
+        }
+      }
+
+      if (!outerSessionId) {
+        await this.connector.commitSession(sessionId);
+      }
+    } catch (error) {
+      let errorMessage = error.message;
+      try {
+        !!sessionId && await this.connector.rollbackSession(sessionId);
+      } catch (error) {
+        errorMessage = `Failed to rollback due to ${error.message} after: ${errorMessage}`;
+      }
+      throw new Error(`Failed to create vertex: ${errorMessage}`);
+    }
+
+    return result;
   }
 
-  async getOneVertex(vertex) {
+  async getVertex(vertex) {
     const { error } = VERTEX_QUERY_SCHEMA.validate(vertex);
     if (error) {
       throw new Error(error);
     }
-    return this.connector.getOneVertex(vertex);
+    return this.connector.getVertex(vertex);
   }
 
-  async createEdge(fromVertex, toVertex) {
-    const from = await this.getOneVertex(fromVertex);
-    const to = await this.getOneVertex(toVertex);
+  async createEdgeByVertices(fromVertex, toVertex, sessionId) {
+    const from = await this.getVertex(fromVertex);
+    const to = await this.getVertex(toVertex);
     if (!from || !to) {
       throw new Error(`Vertex not found.  From: ${JSON.stringify(fromVertex)}; To: ${JSON.stringify(toVertex)}`);
     }
 
-    return this.connector.createEdge(from, to);
+    return this.connector.createEdgeByVertices(from, to, sessionId);
+  }
+
+  async getEdgeByVertices(fromVertex, toVertex) {
+    const from = await this.getVertex(fromVertex);
+    const to = await this.getVertex(toVertex);
+    if (!from || !to) {
+      throw new Error(`Vertex not found.  From: ${JSON.stringify(fromVertex)}; To: ${JSON.stringify(toVertex)}`);
+    }
+
+    return this.connector.getEdgeByVertices(from, to);
   }
 
   async getVerticesByCategory(category) {
