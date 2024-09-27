@@ -213,6 +213,26 @@ CREATE INDEX IF NOT EXISTS ON SystemModule (microService, name) UNIQUE;`;
     const result = await this._dbCommand('query', undefined, query, edge);
     return result[0];
   }
+
+  _getGremlinVertexQuery(vertex) {
+    let query = `g.V().hasLabel('${_.upperFirst(vertex.category)}').has('name', '${vertex.name}')`;
+    if (vertex.category === 'component') {
+      query = `${query}.has('systemModule', '${vertex.systemModule}')`;
+    }
+    return query;
+  }
+
+  async getDescendants(vertex) {
+    const query = `${this._getGremlinVertexQuery(vertex)}.emit().repeat(__.out('Uses')).path()`;
+    const result = await this._dbCommand('query', undefined, query, vertex, 'gremlin');
+    return result;
+  }
+
+  async getAncestors(vertex) {
+    const query = `${this._getGremlinVertexQuery(vertex)}.emit().repeat(__.in('Uses')).path()`;
+    const result = await this._dbCommand('query', undefined, query, vertex, 'gremlin');
+    return result;
+  }
 }
 
 export default ArcadeDB;

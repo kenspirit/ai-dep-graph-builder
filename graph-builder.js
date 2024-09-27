@@ -177,6 +177,14 @@ class GraphBuilder {
   async getVerticesByCategory(category) {
     return this.connector.getVerticesByCategory(category);
   }
+
+  async getDescendants(vertex) {
+    return this.connector.getDescendants(vertex);
+  }
+
+  async getAncestors(vertex) {
+    return this.connector.getAncestors(vertex);
+  }
 }
 
 function registerGraphConnector(connectionType, connector) {
