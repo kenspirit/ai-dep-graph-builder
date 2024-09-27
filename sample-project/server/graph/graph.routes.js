@@ -1,10 +1,9 @@
 import * as graphController from './graph.controller.js';
 import joi from 'joi';
 
-const routes = {
+export default {
   basePath: '/graph',
+  description: 'API Routes for Graph',
   routes: [
   ]
 };
-
-export default routes;

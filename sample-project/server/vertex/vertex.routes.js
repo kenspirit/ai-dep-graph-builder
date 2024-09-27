@@ -2,8 +2,9 @@ import * as vertexController from './vertex.controller.js';
 import { VERTEX_SCHEMA } from '../../../graph-builder.js';
 import joi from 'joi';
 
-const routes = {
+export default {
   basePath: '/vertex',
+  description: 'API Routes for Vertex',
   routes: [
     {
       method: 'get',
@@ -27,5 +28,3 @@ const routes = {
     }
   ]
 };
-
-export default routes;

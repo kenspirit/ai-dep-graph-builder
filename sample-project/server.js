@@ -12,14 +12,16 @@ const port = process.env.PORT || 3000;
 
 app.use(express.static(path.join(__dirname, 'build')));
 
-loadModules(path.join(__dirname, 'server'), '.routes.js').then(routeModules => {
-  routeModules.forEach(routeModule => {
-    if (routeModule.basePath && routeModule.routes && Array.isArray(routeModule.routes)) {
+loadModules(path.join(__dirname, 'server'), /.*\.routes\.js$/).then(routeModules => {
+  routeModules.forEach(({ loadedModule }) => {
+    const moduleRoutes = loadedModule.default;
+    if (moduleRoutes.basePath && moduleRoutes.routes && Array.isArray(moduleRoutes.routes)) {
       const router = express.Router();
-      routeModule.routes.forEach(route => {
+      moduleRoutes.routes.forEach(route => {
+        console.log(`Loading route: POST${moduleRoutes.basePath}${route.path}`);
         router[route.method](route.path, ...route.action);
       });
-      app.use(routeModule.basePath, router);
+      app.use(moduleRoutes.basePath, router);
     }
   });
 

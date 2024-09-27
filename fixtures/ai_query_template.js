@@ -1,3 +1,19 @@
+function getFunctionDescription(functionCode) {
+  return `I want to extract the description of the function in JavaScript source code.  Sample output in JSON format is:
+{
+  "description": "The function is used to describe the function"
+}
+
+If no description found, please return output as below:
+{
+  "description": ""
+}
+Please describe the function for below code in more business terms.
+The response should be a full JSON format in one response, without other text or comment.
+---------------
+${functionCode}`;
+}
+
 function getFunctionDependencies(functionCode) {
   return `I want to extract the global instance and its method call information in JavaScript function source code.  Sample output in JSON format is:
 {
@@ -87,6 +103,7 @@ ${moduleCode}`;
 }
 
 export default {
+  getFunctionDescription,
   getFunctionDependencies,
   getRequiredModuleDependencies,
 };

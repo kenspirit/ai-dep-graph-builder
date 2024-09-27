@@ -38,6 +38,12 @@ class AiProvider {
     this.client = new AI_PROVIDERS[providerType](providerOptions);
   }
 
+  async getFunctionDescription(functionCode) {
+    const prompt = AiQueryTemplate.getFunctionDescription(functionCode);
+    const result = await this.client.chat(prompt);
+    return result;
+  }
+
   async getFunctionDependencies(functionCode) {
     const prompt = AiQueryTemplate.getFunctionDependencies(functionCode);
     const result = await this.client.chat(prompt);

@@ -121,12 +121,21 @@ CREATE INDEX IF NOT EXISTS ON SystemModule (microService, name) UNIQUE;`;
   }
 
   async createVertex(vertex, sessionId) {
-    const existingVertex = await this.getVertex(vertex);
-    if (existingVertex) {
-      return [existingVertex];
-    }
-
     const command = this._getVertexCommand(vertex);
+    return this._dbCommand('command', sessionId, command, vertex);
+  }
+
+  _getVertexUpdateCommand(vertex) {
+    switch (vertex.category) {
+      case 'component':
+        return `UPDATE Component WHERE @rid = ${vertex['@rid']} SET sourceCode = :sourceCode;`;
+      case 'systemModule':
+        return `UPDATE SystemModule WHERE @rid = ${vertex['@rid']} SET businessModules = :businessModules;`;
+    }
+  }
+
+  async updateVertex(vertex, sessionId) {
+    const command = this._getVertexUpdateCommand(vertex);
     return this._dbCommand('command', sessionId, command, vertex);
   }
 

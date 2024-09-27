@@ -11,16 +11,16 @@ const VERTEX_SCHEMA = joi.object({
   category: joi.string().required().valid('businessModule', 'microService', 'systemModule', 'component'),
   name: joi.string().required(),
   type: joi.string().required(), // -- Class / File / UI / Function / Field / Interface (API URL/Queue/Table/Store Procedure)
-  description: joi.string().required(),
+  description: joi.string(),
   dependencies: joi.array().items(joi.link('#vertex')),
   sourceCode: joi.string().when('category', {
     is: 'component',
-    then: joi.required(),
+    then: joi.string().default(''),
     otherwise: joi.forbidden()
   }),
   businessModules: joi.array().when('category', {
     is: 'systemModule',
-    then: joi.array().items(joi.string()).required(),
+    then: joi.array().items(joi.string()),
     otherwise: joi.forbidden()
   }),
   microService: joi.string().when('category', {
@@ -91,6 +91,19 @@ class GraphBuilder {
     try {
       if (!sessionId) {
         sessionId = await this.connector.startSession();
+      }
+
+      const existingVertex = await this.getVertex(vertex);
+      if (existingVertex) {
+        existingVertex.description = vertex.description || existingVertex.description;
+        if (vertex.type === 'component') {
+          existingVertex.sourceCode = vertex.sourceCode;
+          await this.connector.updateVertex(existingVertex, sessionId);
+        } else if (vertex.type === 'systemModule') {
+          existingVertex.businessModules = vertex.businessModules;
+          await this.connector.updateVertex(existingVertex, sessionId);
+        }
+        return [existingVertex];
       }
 
       const [parent] = await this.connector.createVertex(vertex, sessionId);

@@ -11,7 +11,10 @@ async function createVertex(req, res) {
   res.json(vertex);
 }
 
+const description = 'Vertex Controller';
+
 export {
+  description,
   getVerticesByCategory,
   createVertex
 };
