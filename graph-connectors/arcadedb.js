@@ -169,6 +169,11 @@ CREATE INDEX IF NOT EXISTS ON SystemModule (microService, name) UNIQUE;`;
     return result.map(assignCategory)[0];
   }
 
+  async getVerticesByIds(ids) {
+    const result = await this._dbCommand('query', undefined, `SELECT FROM [${ids.join(', ')}]`);
+    return result.map(assignCategory);
+  }
+
   async getVerticesByCategory(category) {
     const result = await this._dbCommand('query', undefined, `SELECT FROM ${category};`);
     return result.map(assignCategory);
@@ -225,12 +230,26 @@ CREATE INDEX IF NOT EXISTS ON SystemModule (microService, name) UNIQUE;`;
   async getDescendants(vertex) {
     const query = `${this._getGremlinVertexQuery(vertex)}.emit().repeat(__.out('Uses')).path()`;
     const result = await this._dbCommand('query', undefined, query, vertex, 'gremlin');
+    // Sample data
+    // [
+    //   { "result": ["#105:0"] },
+    //   { "result": ["#105:0", "#114:0"] },
+    //   { "result": ["#105:0", "#84:0"] },
+    //   { "result": ["#105:0", "#114:0", "#111:0"] },
+    //   { "result": ["#105:0", "#114:0", "#111:0", "#87:0"] }
+    // ]
     return result;
   }
 
   async getAncestors(vertex) {
     const query = `${this._getGremlinVertexQuery(vertex)}.emit().repeat(__.in('Uses')).path()`;
     const result = await this._dbCommand('query', undefined, query, vertex, 'gremlin');
+    // Sample data
+    // [
+    //   { "result": ["#105:0"] },
+    //   { "result": ["#105:0", "#114:0"] },
+    //   { "result": ["#105:0", "#114:0", "#111:0"] }
+    // ]
     return result;
   }
 }

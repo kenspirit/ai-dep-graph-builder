@@ -174,6 +174,10 @@ class GraphBuilder {
     return this.connector.getEdgeByVertices(from, to);
   }
 
+  async getVerticesByIds(ids) {
+    return this.connector.getVerticesByIds(ids);
+  }
+
   async getVerticesByCategory(category) {
     return this.connector.getVerticesByCategory(category);
   }
