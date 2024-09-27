@@ -1,6 +1,16 @@
+import _ from 'lodash';
 import axios from 'axios';
 
 const HEADER_SESSION_ID = 'arcadedb-session-id';
+
+function assignCategory(vertex) {
+  if (!vertex) {
+    return;
+  }
+  vertex.category = _.lowerFirst(vertex['@type']);
+  delete vertex['@type'];
+  return vertex;
+}
 
 class ArcadeDB {
   constructor({ host, port, database, username, password }) {
@@ -122,7 +132,8 @@ CREATE INDEX IF NOT EXISTS ON SystemModule (microService, name) UNIQUE;`;
 
   async createVertex(vertex, sessionId) {
     const command = this._getVertexCommand(vertex);
-    return this._dbCommand('command', sessionId, command, vertex);
+    const result = await this._dbCommand('command', sessionId, command, vertex);
+    return result.map(assignCategory);
   }
 
   _getVertexUpdateCommand(vertex) {
@@ -136,7 +147,8 @@ CREATE INDEX IF NOT EXISTS ON SystemModule (microService, name) UNIQUE;`;
 
   async updateVertex(vertex, sessionId) {
     const command = this._getVertexUpdateCommand(vertex);
-    return this._dbCommand('command', sessionId, command, vertex);
+    const result = await this._dbCommand('command', sessionId, command, vertex);
+    return result.map(assignCategory);
   }
 
   _getVertexQuery(vertex) {
@@ -154,12 +166,12 @@ CREATE INDEX IF NOT EXISTS ON SystemModule (microService, name) UNIQUE;`;
 
   async getVertex(vertex) {
     const result = await this._dbCommand('query', undefined, this._getVertexQuery(vertex), vertex);
-    return result[0];
+    return result.map(assignCategory)[0];
   }
 
   async getVerticesByCategory(category) {
     const result = await this._dbCommand('query', undefined, `SELECT FROM ${category};`);
-    return result;
+    return result.map(assignCategory);
   }
 
   async createEdgeByVertices(fromVertex, toVertex, sessionId) {

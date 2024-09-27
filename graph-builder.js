@@ -65,12 +65,14 @@ class GraphBuilder {
     }
 
     for (const dependency of vertex.dependencies) {
-      // Auto-assign microService & systemModule for child vertices
+      // Auto-assign microService & systemModule for child vertices if empty
       if (dependency.category === 'systemModule') {
         dependency.microService = vertex.name;
       } else if (dependency.category === 'component') {
         dependency.microService = vertex.microService;
-        dependency.systemModule = vertex.name;
+        if (!dependency.systemModule) {
+          dependency.systemModule = vertex.name;
+        }
       }
 
       this._fillMissingProperties(dependency);
@@ -115,13 +117,11 @@ class GraphBuilder {
 
       if (vertex.dependencies) {
         for (const dependency of vertex.dependencies) {
-          const child = await this.connector.createVertex(dependency, sessionId);
+          // Recursively create child vertices
+          const child = await this.createVertex(dependency, sessionId);
           for (const c of child) {
             result.push(c);
-            const edge = await this.connector.createEdgeByVertices(parent, c, sessionId);
-            if (edge) {
-              result.push(edge);
-            }
+            await this.connector.createEdgeByVertices(parent, c, sessionId);
           }
         }
       }
@@ -147,14 +147,18 @@ class GraphBuilder {
     if (error) {
       throw new Error(error);
     }
-    return this.connector.getVertex(vertex);
+    const result = await this.connector.getVertex(vertex);
+    if (result) {
+      result.category = result['@type'];
+    }
+    return result;
   }
 
   async createEdgeByVertices(fromVertex, toVertex, sessionId) {
     const from = await this.getVertex(fromVertex);
     const to = await this.getVertex(toVertex);
     if (!from || !to) {
-      throw new Error(`Vertex not found.  From: ${JSON.stringify(fromVertex)}; To: ${JSON.stringify(toVertex)}`);
+      throw new Error(`Creating Edge: Vertex ${!!from ? 'to' : 'from'} not found.  ${!!from ? JSON.stringify(toVertex) : JSON.stringify(fromVertex)}`);
     }
 
     return this.connector.createEdgeByVertices(from, to, sessionId);

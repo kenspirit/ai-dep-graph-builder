@@ -15,15 +15,18 @@ const astParser = new AstParser();
 const rootDir = path.join(__dirname, 'sample-project/server');
 const microService = 'dep-graph-builder';
 
+async function persistVertex(vertex) {
+  await builder.createVertex(vertex);
+}
+
 async function _getModuleDependencyMapping(filePath, rawContent) {
-  // const name = filePath.replace(rootDir, '');
   const requiredModuleDependencies = astParser.getRequiredModuleDependencies(rawContent);
   const result = {};
   for (const requiredModuleDependency of requiredModuleDependencies) {
     const { identifier, source } = requiredModuleDependency;
     if (source.startsWith('.')) {
       const dependencyPath = path.resolve(path.dirname(filePath), source);
-      const dependencyName = dependencyPath.replace(rootDir, '');
+      const dependencyName = dependencyPath.replace(rootDir, '').replace(/\\/g, '/');
       result[identifier] = { dependencyPath, dependencyName };
     }
   }
@@ -100,7 +103,7 @@ async function buildSystemModuleVerticesFromRouteModules() {
       const systemModule = {
         category: 'systemModule',
         microService: microService,
-        name: filePath.replace(rootDir, ''),
+        name: filePath.replace(rootDir, '').replace(/\\/g, '/'),
         type: 'Class',
         description: moduleRoutes.description,
         dependencies: []
@@ -134,14 +137,14 @@ async function buildSystemModuleVerticesFromRouteModules() {
             category: 'component',
             name: functionName,
             type: 'Function',
-            systemModule: moduleDependency.dependencyName.replace(/\\\\/g, '\\')
+            systemModule: moduleDependency.dependencyName
           });
         }
 
         systemModule.dependencies.push(component);
       }
 
-      await builder.createVertex(systemModule);
+      await persistVertex(systemModule);
     }
   }
 }
@@ -157,7 +160,7 @@ async function buildSystemModuleVerticesFromNonRouteModules() {
 
   for (const result of nonRouteModules) {
     const { filePath, loadedModule } = result;
-    const name = filePath.replace(rootDir, '');
+    const name = filePath.replace(rootDir, '').replace(/\\/g, '/');
     const systemModule = {
       category: 'systemModule',
       microService: microService,
@@ -186,12 +189,12 @@ async function buildSystemModuleVerticesFromNonRouteModules() {
       systemModule.dependencies.push(component);
     };
 
-    await builder.createVertex(systemModule);
+    await persistVertex(systemModule);
   }
 }
 
 async function buildGraph() {
-  await builder.createVertex({
+  await persistVertex({
     name: microService,
     category: 'microService',
     description: 'Dependency graph builder',
