@@ -2,13 +2,16 @@
 import path from 'path';
 import { loadModules } from './sample-project/server/util/module.loader.js';
 import { fileURLToPath } from 'url';
-import { AiProvider, GraphBuilder, AstParser } from './index.js';
+import { AiProvider, GraphBuilder, AstParser, registerAiProvider } from './index.js';
+import DifyWorkflow from './ai-providers/dify_workflow.js';
 import config from './sample.config.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const aiProvider = new AiProvider(config.aiProvider.type, config.aiProvider.providerOptions);
+registerAiProvider('DIFY_WORKFLOW', DifyWorkflow);
+
+const aiProvider = new AiProvider('DIFY_WORKFLOW', config.aiProviders.DIFY_WORKFLOW);
 const builder = new GraphBuilder(config.graph.type, config.graph.connectionOptions);
 const astParser = new AstParser();
 
@@ -28,6 +31,8 @@ async function _getModuleDependencyMapping(filePath, rawContent) {
       const dependencyPath = path.resolve(path.dirname(filePath), source);
       const dependencyName = dependencyPath.replace(rootDir, '').replace(/\\/g, '/');
       result[identifier] = { dependencyPath, dependencyName };
+    } else {
+      result[identifier] = { dependencyName: identifier };
     }
   }
 
@@ -109,7 +114,7 @@ async function buildSystemModuleVerticesFromRouteModules() {
         dependencies: []
       };
 
-      const moduleDependencies = await _getModuleDependencyMapping(filePath, rawContent);
+      const moduleDependencyMap = await _getModuleDependencyMapping(filePath, rawContent);
       const parsedRoutes = _getValidatorsAndActionMapping(moduleRoutes.basePath, rawContent);
 
       for (const route of moduleRoutes.routes) {
@@ -127,7 +132,7 @@ async function buildSystemModuleVerticesFromRouteModules() {
 
         for (const action of parsedRoute.actions) {
           const [moduleIdentifier, functionName] = action.split('.');
-          const moduleDependency = moduleDependencies[moduleIdentifier];
+          const moduleDependency = moduleDependencyMap[moduleIdentifier];
           if (!moduleDependency) {
             console.warn(`Missing Dependency for route ${name} action: ${action}`);
             continue;
@@ -155,11 +160,57 @@ async function _getFunctionDescriptionThroughAI(functionSourceCode) {
   return response.description;
 }
 
+async function _getFunctionDependencies(functionSourceCode, moduleDependencyMap) {
+  const response = await aiProvider.getFunctionDependencies(functionSourceCode);
+  // Response format:
+  // {
+  //   "dependencies": [
+  //     {
+  //       "instanceName": "edgeService",
+  //       "method": "getEdge",
+  //       "usage": "edgeService.getEdge(from, to)"
+  //     },
+  //     {
+  //       "instanceName": "organizationModel",
+  //       "field": "localName"
+  //     }
+  //   ]
+  // }
+
+  // moduleDependencyMap format:
+  // {
+  //   edgeService: {
+  //     dependencyPath: 'C:\\Github\\ai-dep-graph-builder\\sample-project\\server\\edge\\edge.service.js',
+  //     dependencyName: '/edge/edge.service.js'
+  //   }
+  // }
+  // {
+  //   graphBuilder: {
+  //     dependencyPath: 'C:\\Github\\ai-dep-graph-builder\\sample-project\\server\\graph\\graph.service.js',
+  //     dependencyName: '/graph/graph.service.js'
+  //   }
+  // }
+
+  const result = [];
+  for (const dependency of response.dependencies) {
+    const { instanceName, method, usage } = dependency;
+    const moduleDependency = moduleDependencyMap[instanceName];
+    if (!moduleDependency) {
+      console.warn(`Missing Dependency for route ${instanceName} in ${JSON.stringify(moduleDependencyMap)} for ${functionSourceCode}`);
+      continue;
+    }
+    dependency.dependencyName = moduleDependency.dependencyName;
+    result.push(dependency);
+  }
+
+  return result;
+}
+
 async function buildSystemModuleVerticesFromNonRouteModules() {
-  const nonRouteModules = await loadModules(rootDir, /.*(?<!\.routes\.js)$/);
+  const nonRouteModules = await loadModules(rootDir, /.*(?<!\.routes\.js)$/, true);
 
   for (const result of nonRouteModules) {
-    const { filePath, loadedModule } = result;
+    const { filePath, loadedModule, rawContent } = result;
     const name = filePath.replace(rootDir, '').replace(/\\/g, '/');
     const systemModule = {
       category: 'systemModule',
@@ -170,6 +221,8 @@ async function buildSystemModuleVerticesFromNonRouteModules() {
       dependencies: []
     };
 
+    const moduleDependencyMap = await _getModuleDependencyMapping(filePath, rawContent);
+
     for (const instanceName of Object.keys(loadedModule)) {
       const instance = loadedModule[instanceName];
       const isFunction = typeof instance === 'function';
@@ -178,10 +231,23 @@ async function buildSystemModuleVerticesFromNonRouteModules() {
         category: 'component',
         name: instanceName,
         type: isFunction ? 'Function' : 'Field',
-        sourceCode: isFunction ? instance.toString() : `${instance}`
+        sourceCode: isFunction ? instance.toString() : `${instance}`,
+        dependencies: []
       };
+
       if (isFunction) {
         component.description = await _getFunctionDescriptionThroughAI(component.sourceCode);
+
+        const functionDependencies = await _getFunctionDependencies(component.sourceCode, moduleDependencyMap);
+
+        for (const dependency of functionDependencies) {
+          component.dependencies.push({
+            category: 'component',
+            name: dependency.method || dependency.field,
+            type: dependency.method ? 'Function' : 'Field',
+            systemModule: dependency.dependencyName
+          });
+        }
       } else {
         component.description = instanceName;
       }
@@ -194,14 +260,14 @@ async function buildSystemModuleVerticesFromNonRouteModules() {
 }
 
 async function buildGraph() {
-  await persistVertex({
-    name: microService,
-    category: 'microService',
-    description: 'Dependency graph builder',
-    type: 'mono'
-  });
+  // await persistVertex({
+  //   name: microService,
+  //   category: 'microService',
+  //   description: 'Dependency graph builder',
+  //   type: 'mono'
+  // });
 
-  await buildSystemModuleVerticesFromRouteModules();
+  // await buildSystemModuleVerticesFromRouteModules();
   await buildSystemModuleVerticesFromNonRouteModules();
 }
 

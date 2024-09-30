@@ -95,6 +95,7 @@ class GraphBuilder {
         sessionId = await this.connector.startSession();
       }
 
+      let parent;
       const existingVertex = await this.getVertex(vertex);
       if (existingVertex) {
         existingVertex.description = vertex.description || existingVertex.description;
@@ -105,15 +106,19 @@ class GraphBuilder {
           existingVertex.businessModules = vertex.businessModules;
           await this.connector.updateVertex(existingVertex, sessionId);
         }
-        return [existingVertex];
+        result.push(existingVertex);
+
+        parent = existingVertex;
+      } else {
+        const created = await this.connector.createVertex(vertex, sessionId);
+        if (created[0]) {
+          parent = created[0];
+        } else {
+          throw new Error('Failed to create vertex');
+        }
       }
 
-      const [parent] = await this.connector.createVertex(vertex, sessionId);
-      if (parent) {
-        result.push(parent);
-      } else {
-        throw new Error('Failed to create vertex');
-      }
+      result.push(parent);
 
       if (vertex.dependencies) {
         for (const dependency of vertex.dependencies) {
