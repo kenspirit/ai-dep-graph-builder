@@ -21,7 +21,7 @@ loadModules(path.join(__dirname, 'server'), /.*\.routes\.js$/).then(routeModules
         console.log(`Loading route: POST${moduleRoutes.basePath}${route.path}`);
         router[route.method](route.path, ...route.action);
       });
-      app.use(moduleRoutes.basePath, router);
+      app.use(`/api${moduleRoutes.basePath}`, router);
     }
   });
 
