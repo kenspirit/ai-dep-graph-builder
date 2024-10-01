@@ -3,15 +3,15 @@ import path from 'path';
 import { loadModules } from './sample-project/server/util/module.loader.js';
 import { fileURLToPath } from 'url';
 import { AiProvider, GraphBuilder, AstParser, registerAiProvider } from './index.js';
-import DifyWorkflow from './ai-providers/dify_workflow.js';
+import BigModel from './ai-providers/bigmodel.js';
 import config from './sample.config.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-registerAiProvider('DIFY_WORKFLOW', DifyWorkflow);
+registerAiProvider('BIGMODEL', BigModel);
 
-const aiProvider = new AiProvider('DIFY_WORKFLOW', config.aiProviders.DIFY_WORKFLOW);
+const aiProvider = new AiProvider('BIGMODEL', config.aiProviders.BIGMODEL);
 const builder = new GraphBuilder(config.graph.type, config.graph.connectionOptions);
 const astParser = new AstParser();
 
@@ -260,14 +260,14 @@ async function buildSystemModuleVerticesFromNonRouteModules() {
 }
 
 async function buildGraph() {
-  // await persistVertex({
-  //   name: microService,
-  //   category: 'microService',
-  //   description: 'Dependency graph builder',
-  //   type: 'mono'
-  // });
+  await persistVertex({
+    name: microService,
+    category: 'microService',
+    description: 'Dependency graph builder',
+    type: 'mono'
+  });
 
-  // await buildSystemModuleVerticesFromRouteModules();
+  await buildSystemModuleVerticesFromRouteModules();
   await buildSystemModuleVerticesFromNonRouteModules();
 }
 

@@ -1,11 +1,11 @@
 import OpenAI from 'openai';
 
-// https://platform.moonshot.cn/docs/api/chat
-export class MoonShot {
-  constructor({ apiKey, model = 'moonshot-v1-8k' }) {
+// https://open.bigmodel.cn/
+export class BigModel {
+  constructor({ apiKey, model = 'glm-4-flash' }) {
     const client = new OpenAI({
       apiKey,
-      baseURL: "https://api.moonshot.cn/v1",
+      baseURL: "https://open.bigmodel.cn/api/paas/v4/",
     });
 
     this.client = client;
@@ -22,4 +22,4 @@ export class MoonShot {
   }
 }
 
-export default MoonShot;
+export default BigModel;

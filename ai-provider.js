@@ -29,7 +29,7 @@ const SCHEMA = {
 }
 
 function validate(schema, data) {
-  const { error, value } = schema.validate(typeof data === 'string' ? JSON.parse(data) : data);
+  const { error, value } = schema.validate(typeof data === 'string' ? JSON.parse(data.replace(/```json\s*\n/g, '').replace(/\n\s*```/g, '')) : data);
   if (error) {
     throw new Error(error.message);
   }

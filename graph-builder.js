@@ -96,7 +96,7 @@ class GraphBuilder {
       }
 
       let parent;
-      const existingVertex = await this.getVertex(vertex);
+      const existingVertex = await this.getVertex(vertex, sessionId);
       if (existingVertex) {
         existingVertex.description = vertex.description || existingVertex.description;
         if (vertex.type === 'component') {
@@ -139,20 +139,20 @@ class GraphBuilder {
       try {
         !!sessionId && await this.connector.rollbackSession(sessionId);
       } catch (error) {
-        errorMessage = `Failed to rollback due to ${error.message} after: ${errorMessage}`;
+        errorMessage = `${errorMessage}.  Rollback error: ${error.message}.`;
       }
-      throw new Error(`Failed to create vertex: ${errorMessage}`);
+      throw new Error(`Failed to create vertex: ${errorMessage}.`);
     }
 
     return result;
   }
 
-  async getVertex(vertex) {
+  async getVertex(vertex, sessionId) {
     const { error } = VERTEX_QUERY_SCHEMA.validate(vertex);
     if (error) {
       throw new Error(error);
     }
-    const result = await this.connector.getVertex(vertex);
+    const result = await this.connector.getVertex(vertex, sessionId);
     if (result) {
       result.category = result['@type'];
     }
@@ -160,8 +160,8 @@ class GraphBuilder {
   }
 
   async createEdgeByVertices(fromVertex, toVertex, sessionId) {
-    const from = await this.getVertex(fromVertex);
-    const to = await this.getVertex(toVertex);
+    const from = await this.getVertex(fromVertex, sessionId);
+    const to = await this.getVertex(toVertex, sessionId);
     if (!from || !to) {
       throw new Error(`Creating Edge: Vertex ${!!from ? 'to' : 'from'} not found.  ${!!from ? JSON.stringify(toVertex) : JSON.stringify(fromVertex)}`);
     }
@@ -188,6 +188,13 @@ class GraphBuilder {
   }
 
   async getDescendants(vertex) {
+    // Format should be as below and the sub-paths, such as [1, 2], should not be included.
+    // The paths should be the vertex identifiers.
+    // [
+    //   { paths: [1, 2, 3] },
+    //   { paths: [1, 2, 4] },
+    //   { paths: [1, 5, 6] }
+    // ]
     return this.connector.getDescendants(vertex);
   }
 

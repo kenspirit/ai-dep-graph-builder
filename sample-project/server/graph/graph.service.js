@@ -1,5 +1,5 @@
 import { GraphBuilder } from '../../../graph-builder.js';
-import { default as config} from '../../../sample.config.js';
+import config from '../../../sample.config.js';
 
 const graphBuilder = new GraphBuilder(config.graph.type, config.graph.connectionOptions);
 
@@ -11,8 +11,13 @@ async function getAncestors(vertex) {
   return graphBuilder.getAncestors(vertex);
 }
 
+async function getVerticesByIds(ids) {
+  return graphBuilder.getVerticesByIds(ids);
+}
+
 export {
   graphBuilder,
   getDescendants,
-  getAncestors
+  getAncestors,
+  getVerticesByIds
 };

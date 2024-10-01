@@ -18,7 +18,7 @@ loadModules(path.join(__dirname, 'server'), /.*\.routes\.js$/).then(routeModules
     if (moduleRoutes.basePath && moduleRoutes.routes && Array.isArray(moduleRoutes.routes)) {
       const router = express.Router();
       moduleRoutes.routes.forEach(route => {
-        console.log(`Loading route: POST${moduleRoutes.basePath}${route.path}`);
+        console.log(`Loading route: POST /api${moduleRoutes.basePath}${route.path}`);
         router[route.method](route.path, ...route.action);
       });
       app.use(`/api${moduleRoutes.basePath}`, router);

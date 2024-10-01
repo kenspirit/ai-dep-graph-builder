@@ -164,8 +164,8 @@ CREATE INDEX IF NOT EXISTS ON SystemModule (microService, name) UNIQUE;`;
     }
   }
 
-  async getVertex(vertex) {
-    const result = await this._dbCommand('query', undefined, this._getVertexQuery(vertex), vertex);
+  async getVertex(vertex, sessionId) {
+    const result = await this._dbCommand('query', sessionId, this._getVertexQuery(vertex), vertex);
     return result.map(assignCategory)[0];
   }
 
@@ -189,9 +189,9 @@ CREATE INDEX IF NOT EXISTS ON SystemModule (microService, name) UNIQUE;`;
     return createdEdge;
   }
 
-  async _dbQuery(operation, query) {
+  async _dbQuery(operation, query, language = 'sql') {
     try {
-      const { data: responseData, status } = await this.connector.get(`/${operation}/${this.database}/sql/`);
+      const { data: responseData, status } = await this.connector.get(`/${operation}/${this.database}/${language}/${encodeURIComponent(query)}`);
       if (![200, 204].includes(status)) {
         // Data might carry error message & exception info
         throw new Error(`Failed to ${operation} with command: ${command}.  Response: ${JSON.stringify(responseData)}`);
@@ -227,9 +227,14 @@ CREATE INDEX IF NOT EXISTS ON SystemModule (microService, name) UNIQUE;`;
     return query;
   }
 
-  async getDescendants(vertex) {
-    const query = `${this._getGremlinVertexQuery(vertex)}.emit().repeat(__.out('Uses')).path()`;
-    const result = await this._dbCommand('query', undefined, query, vertex, 'gremlin');
+  _isSubPath(pathA, pathB) {
+    if (pathA.length > pathB.length) {
+      return false;
+    }
+    return pathA.every((vertex, index) => vertex === pathB[index]);
+  }
+
+  _removeSubPaths(result) {
     // Sample data
     // [
     //   { "result": ["#105:0"] },
@@ -238,19 +243,31 @@ CREATE INDEX IF NOT EXISTS ON SystemModule (microService, name) UNIQUE;`;
     //   { "result": ["#105:0", "#114:0", "#111:0"] },
     //   { "result": ["#105:0", "#114:0", "#111:0", "#87:0"] }
     // ]
-    return result;
+
+    // Sort the result by the length of the path
+    result.sort((a, b) => a.result.length - b.result.length);
+
+    // Remove the sub-paths
+    const uniquePaths = [];
+    result.forEach((path, index) => {
+      if (!_.find(result, (other) => this._isSubPath(path.result, other.result), index + 1)) {
+        uniquePaths.push(path.result);
+      }
+    });
+
+    return Array.from(uniquePaths).map(path => ({ paths: path }));
+  }
+
+  async getDescendants(vertex) {
+    const query = `${this._getGremlinVertexQuery(vertex)}.emit().repeat(__.out('Uses')).path().dedup()`;
+    const result = await this._dbCommand('query', undefined, query, undefined, 'gremlin');
+    return this._removeSubPaths(result);
   }
 
   async getAncestors(vertex) {
-    const query = `${this._getGremlinVertexQuery(vertex)}.emit().repeat(__.in('Uses')).path()`;
-    const result = await this._dbCommand('query', undefined, query, vertex, 'gremlin');
-    // Sample data
-    // [
-    //   { "result": ["#105:0"] },
-    //   { "result": ["#105:0", "#114:0"] },
-    //   { "result": ["#105:0", "#114:0", "#111:0"] }
-    // ]
-    return result;
+    const query = `${this._getGremlinVertexQuery(vertex)}.emit().repeat(__.in('Uses')).path().dedup()`;
+    const result = await this._dbCommand('query', undefined, query, undefined, 'gremlin');
+    return this._removeSubPaths(result);
   }
 }
 
