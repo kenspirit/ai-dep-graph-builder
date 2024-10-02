@@ -4,25 +4,20 @@ import * as graphService from './graph.service.js';
 /*
  * Massaged result for graph chart rendering
  * {
-      "nodes": [
-        {
-          "id": "0",
-          "name": "Myriel",
-          "symbolSize": 19.12381, // File - 12, Function/Field - 4, API - 8
-          "value": 28.685715,
-          "category": 0
-        }
+      "vertices": [
+        // Vertex Schema
       ],
       "links": [
         {
-          "source": "1",
+          "source": "1", // Vertex id
           "target": "0"
         }
       ],
-      "categories": [
-        {
-          "name": "A"
-        }
+      "categories": [ // Vertex type
+        { name: 'Class' },
+        { name: 'Function' },
+        { name: 'Field' },
+        { name: 'API' }
       ]
     }
  */
@@ -35,20 +30,12 @@ async function _massageResult(result) {
   const vertices = uniqueIds.length > 0 ? await graphService.getVerticesByIds(uniqueIds) : [];
 
   const categories = [
-    { name: 'File' },
+    { name: 'Class' },
     { name: 'Function' },
     { name: 'Field' },
     { name: 'API' }
   ];
 
-  const nodes = vertices.map(vertex => ({
-    id: vertex['@rid'],
-    name: vertex.name,
-    symbolSize: vertex.type === 'File' ? 12 : vertex.type === 'Function' || vertex.type === 'Field' ? 4 : 8,
-    value: vertex.type,
-    category: _.findIndex(categories, { name: vertex.type })
-  }));
-  
   const links = result.reduce((acc, item) => {
     for (let i = 0; i < item.paths.length - 1; i++) {
       acc.push({
@@ -59,7 +46,7 @@ async function _massageResult(result) {
     return acc;
   }, []);
 
-  return { nodes, links, categories };
+  return { vertices, links, categories };
 }
 
 async function getDescendants(req, res) {

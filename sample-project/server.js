@@ -1,5 +1,4 @@
 import express from 'express';
-import { handler } from './build/handler.js';
 import path from 'path';
 import { loadModules } from './server/util/module.loader.js';
 import { fileURLToPath } from 'url';
@@ -10,7 +9,7 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const port = process.env.PORT || 3000;
 
-app.use(express.static(path.join(__dirname, 'build')));
+// app.use(express.static(path.join(__dirname, 'build')));
 
 loadModules(path.join(__dirname, 'server'), /.*\.routes\.js$/).then(routeModules => {
   routeModules.forEach(({ loadedModule }) => {
@@ -24,8 +23,6 @@ loadModules(path.join(__dirname, 'server'), /.*\.routes\.js$/).then(routeModules
       app.use(`/api${moduleRoutes.basePath}`, router);
     }
   });
-
-  app.use(handler);
 
   app.listen(port, () => {
     console.log(`Server running on http://localhost:${port}`);

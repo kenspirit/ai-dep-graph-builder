@@ -2,34 +2,38 @@
 	"name": "sample-project",
 	"version": "0.0.1",
 	"private": true,
+	"type": "module",
 	"scripts": {
-		"dev": "vite dev",
+		"dev": "vite",
 		"build": "vite build",
 		"preview": "vite preview",
-		"lint": "prettier --check . && eslint .",
-		"format": "prettier --write .",
-		"start": "node server.js"
+		"test:unit": "vitest",
+		"lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs --fix --ignore-path .gitignore",
+		"format": "prettier --write src/"
+	},
+	"dependencies": {
+		"joi": "^17.13.3",
+		"pinia": "^2.1.7",
+		"vue": "^3.4.29",
+		"vue-router": "^4.3.3"
 	},
 	"devDependencies": {
-		"@sveltejs/adapter-auto": "^3.2.5",
-		"@sveltejs/adapter-node": "^5.2.3",
-		"@sveltejs/kit": "^2.5.28",
-		"@sveltejs/vite-plugin-svelte": "^3.1.2",
-		"@types/eslint": "^9.6.0",
+		"@rushstack/eslint-patch": "^1.8.0",
+		"@vitejs/plugin-vue": "^5.0.5",
+		"@vue/eslint-config-prettier": "^9.0.0",
+		"@vue/test-utils": "^2.4.6",
 		"echarts": "^5.5.1",
-		"eslint": "^9.0.0",
-		"eslint-config-prettier": "^9.1.0",
-		"eslint-plugin-svelte": "^2.36.0",
+		"element-plus": "^2.8.4",
+		"eslint": "^8.57.0",
+		"eslint-plugin-vue": "^9.23.0",
 		"express": "^4.21.0",
-		"globals": "^15.0.0",
-		"prettier": "^3.1.1",
-		"prettier-plugin-svelte": "^3.1.2",
-		"svelte": "^4.2.19",
-		"svelte-echarts": "^1.0.0-rc3",
-		"vite": "^5.0.3"
-	},
-	"type": "module",
-	"dependencies": {
-		"joi": "^17.13.3"
+		"jsdom": "^24.1.0",
+		"prettier": "^3.2.5",
+		"unplugin-auto-import": "^0.18.3",
+		"unplugin-vue-components": "^0.27.4",
+		"vite": "^5.3.1",
+		"vite-plugin-vue-devtools": "^7.3.1",
+		"vitest": "^1.6.0",
+		"vue-echarts": "^7.0.3"
 	}
 }
