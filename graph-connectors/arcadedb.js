@@ -126,7 +126,7 @@ CREATE INDEX IF NOT EXISTS ON SystemModule (microService, name) UNIQUE;`;
       case 'systemModule':
         return `CREATE VERTEX SystemModule SET name = :name, type = :type, businessModules = :businessModules, microService = :microService;`;
       case 'component':
-        return `CREATE VERTEX Component SET name = :name, type = :type, microService = :microService, systemModule = :systemModule, sourceCode = :sourceCode;`;
+        return `CREATE VERTEX Component SET name = :name, type = :type, microService = :microService, systemModule = :systemModule, sourceCode = :sourceCode, description = :description;`;
     }
   }
 
@@ -139,16 +139,15 @@ CREATE INDEX IF NOT EXISTS ON SystemModule (microService, name) UNIQUE;`;
   _getVertexUpdateCommand(vertex) {
     switch (vertex.category) {
       case 'component':
-        return `UPDATE Component WHERE @rid = ${vertex['@rid']} SET sourceCode = :sourceCode;`;
+        return `UPDATE Component SET sourceCode = :sourceCode, description = :description  WHERE @rid = ${vertex['@rid']};`;
       case 'systemModule':
-        return `UPDATE SystemModule WHERE @rid = ${vertex['@rid']} SET businessModules = :businessModules;`;
+        return `UPDATE SystemModule SET businessModules = :businessModules WHERE @rid = ${vertex['@rid']};`;
     }
   }
 
   async updateVertex(vertex, sessionId) {
     const command = this._getVertexUpdateCommand(vertex);
-    const result = await this._dbCommand('command', sessionId, command, vertex);
-    return result.map(assignCategory);
+    return this._dbCommand('command', sessionId, command, vertex);
   }
 
   _getVertexQuery(vertex) {

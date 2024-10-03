@@ -37,7 +37,7 @@ export function getTreeOptions(graphData, direction) {
           position: 'bottom',
           verticalAlign: 'middle',
           align: 'center',
-          fontSize: 9
+          fontSize: 13
         },
         leaves: {
           label: {

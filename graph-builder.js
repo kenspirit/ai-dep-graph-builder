@@ -99,10 +99,10 @@ class GraphBuilder {
       const existingVertex = await this.getVertex(vertex, sessionId);
       if (existingVertex) {
         existingVertex.description = vertex.description || existingVertex.description;
-        if (vertex.type === 'component') {
+        if (vertex.category === 'component') {
           existingVertex.sourceCode = vertex.sourceCode;
           await this.connector.updateVertex(existingVertex, sessionId);
-        } else if (vertex.type === 'systemModule') {
+        } else if (vertex.category === 'systemModule') {
           existingVertex.businessModules = vertex.businessModules;
           await this.connector.updateVertex(existingVertex, sessionId);
         }
@@ -152,11 +152,7 @@ class GraphBuilder {
     if (error) {
       throw new Error(error);
     }
-    const result = await this.connector.getVertex(vertex, sessionId);
-    if (result) {
-      result.category = result['@type'];
-    }
-    return result;
+    return this.connector.getVertex(vertex, sessionId);
   }
 
   async createEdgeByVertices(fromVertex, toVertex, sessionId) {
