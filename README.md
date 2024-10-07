@@ -2,54 +2,101 @@
 
 Code dependency graph is always wanted, at least for me.
 
-From Top-Down direction, it's great to know what parts of the system are needed to change when facing a business requirement change.  
+From Top-Down direction, it's great to know which parts of the system are needed to change when facing a business requirement change.  
 
-From Bottom-Up direction, it's great to know what parts of the system might be impacted when I am making one change in system.
+From Bottom-Up direction, it's necessary to check which parts of the system might be impacted when one change is made.
 
-Knowing this can do better change impact analysis and effort estimation.
+Knowing code dependency can have better impact analysis and effort estimation.
 
-This project is to build the code dependency graph with the asistance of AI (or AST if security concern is an issue).  Due to the dynamic characteristics of JavaScript, the dependency graph might not be completely correct.
+This project is to build the code dependency graph with the asistance of AI.  Due to the dynamic characteristics of JavaScript, the dependency graph might not be completely accurate but we try to make it closed.
 
-### Scenario
-* Component Rename
-* Field Change (Removed)
-* Function Implementation Change
-* API Change (Field Addition)
-* Business Module Change (From BA perspective, such as adding field support for search API)
+
+## Repo Components
+
+This tool includes four major components:
+1. API for graph data (Node, Edge) manipulation against Graph Database
+  - Exported from `index.js`, mainly includes `GraphBuilder`, `AiProvider`, `AstParser` and some facilitated APIs
+2. AI adaptors
+  - Pre-defined `AiProvider` under directory `ai-providers`.
+3. Sample project providing restful API for graph component manipulation and visualization UI
+  - Under directory `sample-project`.  NO AI related feature.
+4. Graph data generation script for the sample project.
+  - Script `repo.graph.builder.js` which builds code dependency graph for the sample project as a demonstration for API usage.
 
 
 ## Usage
 
-module.exports = {
+### JavaScript project
+
+Invokes API provided by `index.js` like `repo.graph.builder.js` to contruct the code dependency and store to your graph database.
+
+Sample configuration should be provided as:
+
+```json
+{
   graph: {
     type: 'ARCADEDB',
     connectionOptions: {
-      host: 'localhost',
+      host: '127.0.0.1',
       port: 2480,
       database: '',
-      username: 'root',
+      username: '',
+      password: ''
+    }
+  },
+  aiProviders: {
+    MOONSHOT: {
+      apiKey: 'key-1'
+    },
+    BIGMODEL: {
+      apiKey: 'key-2'
+    }
+  }
+}
+```
+
+### Non-JavaScript project
+
+Invokes RESTful API through starting up the web service under directory `sample-project` through steps:  
+1. Run `npm install`
+2. Run `npm build`
+3. Run `node server.js`
+
+Sample configuration should be provided as below.  `aiProviders` is not needed as it does not contain any AI related feature:
+
+```json
+{
+  graph: {
+    type: 'ARCADEDB',
+    connectionOptions: {
+      host: '127.0.0.1',
+      port: 2480,
+      database: '',
+      username: '',
       password: ''
     }
   }
 }
+```
 
+## Code Dependency Graph Design Explained
 
-## Edge (Connection between Vertices)
+### Edge (Connection between Vertices)
 
 There is ONLY one Edge type `Uses`.  It's used to connect:
 - From Micro-Service to System Module
 - From System Module to Component
 - From Component to Component
 
-A `Uses` B means A `depends` on B, which is `A -> B`.  When this relationship exists, if B is updated, A is potentially affected.  Business Module, Micro-Service, System Module are mainly used as grouping purpose.  The real dependency or impact actually depends on `Component -> Component` relationship tracking.  Detail explanation of different Vertex categories is in following sections.
+A `Uses` B means that A `depends` on B, which is `A -> B`.  When this relationship exists, if B is updated, A is potentially affected.  Business Module, Micro-Service, System Module are mainly used as grouping purpose.  The real dependency or impact actually depends on `Component -> Component` relationship tracking.  Detail explanation of different Vertex categories is in following sections.
 
 
-## Vertex (Node) categories in Dependency Graph
+### Vertex (Node) categories in Dependency Graph
 
 Vertex has three basic properties:
 - name: Brief name of the Vertex and should be unique in same category
 - type: Type identifier within same category if required.
-- description: Long description of one Vertex.  It must be in detail, especially for Business Module, System Module, Function Component, etc.
+- description: Long description of one Vertex.  It must be in detail, especially for Business Module, System Module, Function type Component, etc.  It is provided to AI as RAG with your question so that it can reason out which vertices to look up.
 
 Vertex has four categories:
 - Business Module
@@ -57,18 +104,16 @@ Vertex has four categories:
 - System Module
 - Component
 
-### Business Module
+#### Business Module
 
-It's used for describing a business function in one system.  Hence, the description should be in BA's term so that when presenting BA's question to AI, the AI should be able to tell which business module the BA's talking about.
+For example, when one BA asked "I want to add wildcast search support on the Organization name in Organization Search Page", the AI should knows it's talking about the Business Module for Organization, and then the graph engine can retrieve all related, especially children, Vertices starting from this Business Module Vertex.
 
-For example, when one BA asked "I want to add wildcast search support on the Organization name in Organization Search Page", the AI should knows it's talking about the Business Module for Organization, and then the graph engine can retrieve all related, especially children, Vertexes starting from this Business Module Vertex.
+#### Micro-Service
 
-### Micro-Service
-
-It's just from technical perspective, especially for the project which separates frontend and backend.  Making it one level of Vertex has better visual output as a tree starting from it, to System Module, and then down to the Component Vertex.
+This is just from technical perspective, especially for the project which separates frontend and backend.  Making it one level of Vertex has better visual output as a tree starting from it, to System Module, and then down to the Component Vertices.
 
 
-### System Module
+#### System Module
 
 Grouping code files by Roles or by Feature/Module are two popular choices.  This Dependency Graph project would prefer the second choice, but it does not affect your usage only if you name the Vertex in the pattern suits your project.  Name of the System Module Vertex could simply be the folder name, file name or the combination of it.
 
@@ -111,7 +156,7 @@ By Feature/Module with optional sub-level roles' separation:
 │           └── orderInquiryService.js
 ```
 
-### Component
+#### Component
 
 This is the actual Vertex that tracks code dependency.  It has extra properties beside `name`, `type`, `description`:
 
@@ -122,22 +167,24 @@ This is the actual Vertex that tracks code dependency.  It has extra properties 
 - sourceCode: Source code of this component.  It can be function signature & body, API route validation code, etc.
 
 
-## Graph Building
+### Graph Building
 
-To build a dependency graph for a project, it should probably go through below steps:
-- Create `Business Module` type Vertices.  These vertices should normally be prepared by business analysis and they cannot be done through codebase scan.
-- Create `Micro-Service` type Vertices.  These vertices are normally 1-1 mapping to code repository.
+To build a code dependency graph for a project, it should probably go through below steps:
+- Create `Business Module` type Vertices.  These vertices should normally be prepared by business analysis and they probabaly cannot be done through codebase scan.
+- Create `Micro-Service` type Vertices.  These vertices are normally 1-1 mapping to the code repositories.
 - Create `System Module` and `Component` type Vertices.  These should be done automatically by code scan.
-  - 1st scan on each code file should generates each `System Module` vertex with dependencies vertices of its functions at least.
-  - 2nd scan can use the `getRequiredModuleDependencies` for each file, and `getFunctionDependencies` for each function to create Edges
+  - Take `repo.graph.builder` as a reference.
 
-```
+
+Sample Vertices:
+
+```javascript
 const businessModuleVertices = [
   {
     name: 'Organization',
     category: 'businessModule',
     description: 'Organization Management',
-    type: 'Profile'
+    type: 'Organization'
   },
   {
     name: 'Metering',
@@ -149,13 +196,13 @@ const businessModuleVertices = [
 
 const microServiceVertices = [
   {
-    name: 'pm_console',
+    name: 'platform_console',
     category: 'microService',
     description: 'Platform Console',
     type: 'frontend'
   },
   {
-    name: 'pm_console_svc',
+    name: 'platform_console_service',
     category: 'microService',
     description: 'Platform Console Service',
     type: 'backend'
@@ -166,14 +213,14 @@ const systemModuleVertices = [
   {
     category: 'systemModule',
     businessModules: ['Organization'],
-    microService: 'pm_console_svc',
-    name: 'organization.platform.routes.js',
+    microService: 'platform_console_service',
+    name: 'organization.routes.js',
     type: 'Class',
-    description: 'API Routes for Organization Platform API',
+    description: 'API Routes for Organization API',
     dependencies: [
       {
         category: 'component',
-        name: 'POST /organizations/request/:orgId/roles',
+        name: 'POST /organizations/:orgId/roles',
         type: 'api',
         description: 'API Routes for adding memberRoles for Organization',
         sourceCode: `...`
@@ -183,7 +230,7 @@ const systemModuleVertices = [
   {
     category: 'systemModule',
     businessModules: ['Organization', 'Metering'],
-    microService: 'pm_console_svc',
+    microService: 'platform_console_service',
     name: 'organization.services.js',
     type: 'Class',
     description: 'Service Class for Organization',
@@ -192,7 +239,7 @@ const systemModuleVertices = [
         category: 'component',
         name: 'addMemberRoles',
         type: 'function',
-        description: 'Service API for adding memberRoles for Organization',
+        description: 'Service API to add memberRoles for Organization',
         sourceCode: `...`
       }
     ]
@@ -200,10 +247,10 @@ const systemModuleVertices = [
   {
     category: 'systemModule',
     businessModules: ['System'],
-    microService: 'pm_console_svc',
-    name: 'repository.server.util.js',
+    microService: 'platform_console_service',
+    name: 'repository.util.js',
     type: 'Class',
-    description: 'Repository Server Util',
+    description: 'Repository Utility',
     dependencies: [
       {
         category: 'component',
@@ -215,35 +262,4 @@ const systemModuleVertices = [
     ]
   }
 ];
-```
-
-
-
-
-```sql
--- Find all components that directly or indirectly use a given component
-g.V().hasLabel('Component')
-  .has('name', 'addMemberRoles')
-  .has('systemModule', 'organization.service.js')
-  .emit().repeat(__.in('Uses'))
-  .path()
-
-["#105:0"]
-["#105:0","#114:0"]
-["#105:0","#84:0"]
-["#105:0","#114:0","#111:0"]
-["#105:0","#114:0","#90:0"]
-["#105:0","#114:0","#111:0","#87:0"]
-
--- Find all components that started from a given component
-g.V().hasLabel('Component')
-  .has('name', 'POST /organizations/request/:orgId/roles')
-  .has('systemModule', 'organization.platform.routes.js')
-  .emit().repeat(__.out('Uses'))
-  .path()
-
-["#111:0"]
-["#111:0","#114:0"]
-["#111:0","#114:0","#105:0"]
-["#111:0","#114:0","#105:0","#108:0"]
 ```
