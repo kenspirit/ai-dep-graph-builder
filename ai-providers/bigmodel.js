@@ -13,9 +13,10 @@ export class BigModel {
   }
 
   async chat(prompt, model = this.model) {
+    const messages = Array.isArray(prompt) ? prompt : [{ role: 'user', content: prompt }];
     const completion = await this.client.chat.completions.create({
       model,
-      messages: [{ role: 'user', content: prompt }],
+      messages,
     });
     // history = history.concat(completion.choices[0].message)
     return completion.choices[0].message.content;

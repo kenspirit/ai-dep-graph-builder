@@ -11,7 +11,7 @@ const __dirname = path.dirname(__filename);
 
 registerAiProvider('BIGMODEL', BigModel);
 
-const aiProvider = new AiProvider('BIGMODEL', config.aiProviders.BIGMODEL);
+const aiProvider = new AiProvider(config.defaultAiProvider, config.aiProviders[config.defaultAiProvider]);
 const builder = new GraphBuilder(config.graph.type, config.graph.connectionOptions);
 const astParser = new AstParser();
 
@@ -105,14 +105,15 @@ async function buildSystemModuleVerticesFromRouteModules() {
 
     const moduleRoutes = loadedModule.default;
     if (moduleRoutes.basePath && moduleRoutes.routes && Array.isArray(moduleRoutes.routes)) {
-      const systemModule = {
-        category: 'systemModule',
-        microService: microService,
-        name: filePath.replace(rootDir, '').replace(/\\/g, '/'),
-        type: 'Class',
-        description: moduleRoutes.description,
-        dependencies: []
-      };
+      const systemModuleName = filePath.replace(rootDir, '').replace(/\\/g, '/');
+      // const systemModule = {
+      //   category: 'systemModule',
+      //   microService: microService,
+      //   name: filePath.replace(rootDir, '').replace(/\\/g, '/'),
+      //   type: 'Class',
+      //   description: moduleRoutes.description,
+      //   dependencies: []
+      // };
 
       const moduleDependencyMap = await _getModuleDependencyMapping(filePath, rawContent);
       const parsedRoutes = _getValidatorsAndActionMapping(moduleRoutes.basePath, rawContent);
@@ -125,6 +126,8 @@ async function buildSystemModuleVerticesFromRouteModules() {
           category: 'component',
           name,
           type: 'API',
+          systemModule: systemModuleName,
+          microService: microService,
           description: route.description,
           sourceCode: parsedRoute.validators,
           dependencies: []
@@ -146,10 +149,11 @@ async function buildSystemModuleVerticesFromRouteModules() {
           });
         }
 
-        systemModule.dependencies.push(component);
+        // systemModule.dependencies.push(component);
+        await persistVertex(component);
       }
 
-      await persistVertex(systemModule);
+      // await persistVertex(systemModule);
     }
   }
 }
@@ -211,15 +215,15 @@ async function buildSystemModuleVerticesFromNonRouteModules() {
 
   for (const result of nonRouteModules) {
     const { filePath, loadedModule, rawContent } = result;
-    const name = filePath.replace(rootDir, '').replace(/\\/g, '/');
-    const systemModule = {
-      category: 'systemModule',
-      microService: microService,
-      name,
-      type: 'Class',
-      description: loadedModule.description || name,
-      dependencies: []
-    };
+    const systemModuleName = filePath.replace(rootDir, '').replace(/\\/g, '/');
+    // const systemModule = {
+    //   category: 'systemModule',
+    //   microService: microService,
+    //   name,
+    //   type: 'Class',
+    //   description: loadedModule.description || name,
+    //   dependencies: []
+    // };
 
     const moduleDependencyMap = await _getModuleDependencyMapping(filePath, rawContent);
 
@@ -230,6 +234,8 @@ async function buildSystemModuleVerticesFromNonRouteModules() {
       const component = {
         category: 'component',
         name: instanceName,
+        systemModule: systemModuleName,
+        microService: microService,
         type: isFunction ? 'Function' : 'Field',
         sourceCode: isFunction ? instance.toString() : `${instance}`,
         dependencies: []
@@ -252,10 +258,11 @@ async function buildSystemModuleVerticesFromNonRouteModules() {
         component.description = instanceName;
       }
 
-      systemModule.dependencies.push(component);
+      // systemModule.dependencies.push(component);
+      await persistVertex(component);
     };
 
-    await persistVertex(systemModule);
+    // await persistVertex(systemModule);
   }
 }
 

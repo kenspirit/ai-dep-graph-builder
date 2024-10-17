@@ -11,13 +11,28 @@ const port = process.env.PORT || 3000;
 
 // app.use(express.static(path.join(__dirname, 'build')));
 
+app.use(
+  express.urlencoded({
+    extended: true,
+    parameterLimit: 20000,
+    limit: 20000
+  })
+);
+app.use(
+  express.json({
+    extended: true,
+    parameterLimit: 20000,
+    limit: 20000
+  })
+);
+
 loadModules(path.join(__dirname, 'server'), /.*\.routes\.js$/).then(routeModules => {
   routeModules.forEach(({ loadedModule }) => {
     const moduleRoutes = loadedModule.default;
     if (moduleRoutes.basePath && moduleRoutes.routes && Array.isArray(moduleRoutes.routes)) {
       const router = express.Router();
       moduleRoutes.routes.forEach(route => {
-        console.log(`Loading route: POST /api${moduleRoutes.basePath}${route.path}`);
+        console.log(`Loading route: ${route.method} /api${moduleRoutes.basePath}${route.path}`);
         router[route.method](route.path, ...route.action);
       });
       app.use(`/api${moduleRoutes.basePath}`, router);

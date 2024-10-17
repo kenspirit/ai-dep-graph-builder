@@ -32,7 +32,7 @@ Invokes API provided by `index.js` like `repo.graph.builder.js` to contruct the 
 
 Sample configuration should be provided as:
 
-```json
+```javascript
 {
   graph: {
     type: 'ARCADEDB',

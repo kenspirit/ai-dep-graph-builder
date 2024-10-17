@@ -7,7 +7,7 @@
       <el-row>
         <el-col :span="24">
           <el-form-item label="Direction">
-            <el-radio-group v-model="form.direction">
+            <el-radio-group v-model="form.direction" @change="setDefault">
               <el-radio value="descendants">Descendants</el-radio>
               <el-radio value="ancestors">Ancestors</el-radio>
             </el-radio-group>
@@ -43,11 +43,34 @@
       </el-form-item>
     </el-form>
 
-    <v-chart :option="graphOptions" style="width: 100%; height: 500px;"/>
+    <el-row>
+      <el-col :span="12">
+        <v-chart :option="graphOptions" style="width: 100%; height: 500px;" />
+      </el-col>
+      <el-col :span="1"></el-col>
+      <el-col :span="11">
+        <el-scrollbar height="400px">
+          <el-card v-for="(c, index) in conversations" :key="index" style="margin-bottom: 10px">
+            <template #header>
+              <div class="card-header">
+                <span style="font-weight: bold;">{{ capitalize(c.author) }}</span>
+              </div>
+            </template>
+            <MdPreview :editorId="index" :modelValue="c.content" />
+            <!-- <p class="text">
+              <el-input v-model="c.content" style="width: 100%" :rows="3" type="textarea"/>
+            </p> -->
+          </el-card>
+        </el-scrollbar>
+        <el-input v-model="question" style="width: 100%" :rows="3" type="textarea" placeholder="Please input" />
+        <el-button type="primary" @click="ask" style="margin-top: 10px">Ask</el-button>
+      </el-col>
+    </el-row>
   </div>
 </template>
 
 <script setup>
+import capitalize from 'lodash/capitalize';
 import { ref, reactive } from 'vue';
 import axios from 'axios';
 import { use } from 'echarts/core';
@@ -58,8 +81,9 @@ import {
   TooltipComponent
 } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
-import VChart, { THEME_KEY } from 'vue-echarts';
-import { getSankeyOptions } from './sankey.js';
+import VChart from 'vue-echarts';
+import { MdPreview } from 'md-editor-v3';
+import 'md-editor-v3/lib/style.css';
 import { getTreeOptions } from './tree.js';
 
 use([
@@ -91,12 +115,49 @@ const graphData = {
 
 const graphOptions = ref(getTreeOptions(graphData, form.direction));
 
+let conversations = ref([]);
+let question = ref('');
+
+function setDefault(direction) {
+  if (direction === 'ancestors') {
+    form.systemModule = '/graph/graph.service.js';
+    form.name = 'getAncestors';
+  } else {
+    form.systemModule = '/vertex/vertex.routes.js';
+    form.name = 'get /vertex/';
+  }
+}
+
 async function retrieve() {
   const response = await axios.get(`/api/graph/${form.direction}?category=${form.category}&name=${encodeURIComponent(form.name)}&systemModule=${encodeURIComponent(form.systemModule)}&microService=${encodeURIComponent(form.microService)}`)
   const newOptions = getTreeOptions(response.data, form.direction);
   // const newOptions = getSankeyOptions(response.data);
 
   graphOptions.value = newOptions;
+}
+
+async function ask() {
+  const data = {
+    direction: form.direction,
+    component: {
+      category: form.category,
+      name: form.name,
+      systemModule: form.systemModule,
+      microService: form.microService
+    },
+    changeDescription: question.value
+  };
+
+  const response = await axios.post(`/api/ai/affected-from-component`, data);
+  console.log(response);
+  conversations.value.push({
+    author: 'user',
+    content: question.value
+  })
+  conversations.value.push({
+    author: 'asistant',
+    content: response.data.response
+  })
 }
 </script>
 

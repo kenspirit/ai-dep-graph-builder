@@ -41,6 +41,10 @@ class AiProvider {
     this.client = new AI_PROVIDERS[providerType](providerOptions);
   }
 
+  async chat(messages) {
+    return this.client.chat(messages);
+  }
+
   async getFunctionDescription(functionCode) {
     const prompt = AiQueryTemplate.getFunctionDescription(functionCode);
     const result = await this.client.chat(prompt);
