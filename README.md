@@ -64,7 +64,7 @@ Invokes RESTful API through starting up the web service under directory `sample-
 
 Sample configuration should be provided as below.  `aiProviders` is not needed as it does not contain any AI related feature:
 
-```json
+```javascript
 {
   graph: {
     type: 'ARCADEDB',
