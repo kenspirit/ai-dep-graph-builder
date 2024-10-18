@@ -33,10 +33,27 @@ loadModules(path.join(__dirname, 'server'), /.*\.routes\.js$/).then(routeModules
       const router = express.Router();
       moduleRoutes.routes.forEach(route => {
         console.log(`Loading route: ${route.method} /api${moduleRoutes.basePath}${route.path}`);
-        router[route.method](route.path, ...route.action);
+        const middlewares = route.action.map((action) => {
+          return async function (req, res, next) {
+            try {
+              const result = action(req, res, next);
+              if (result && typeof result.then === 'function') {
+                await result;
+              }
+            } catch (e) {
+              next(e);
+            }
+          };
+        });
+        router[route.method](route.path, middlewares);
       });
       app.use(`/api${moduleRoutes.basePath}`, router);
     }
+  });
+
+  app.use((err, req, res, next) => {
+    console.error(err);
+    res.status(500).send('Something broke!');
   });
 
   app.listen(port, () => {

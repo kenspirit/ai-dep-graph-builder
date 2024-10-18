@@ -53,19 +53,30 @@
           <el-card v-for="(c, index) in conversations" :key="index" style="margin-bottom: 10px">
             <template #header>
               <div class="card-header">
-                <span style="font-weight: bold;">{{ capitalize(c.author) }}</span>
+                <span style="font-weight: bold;">{{ capitalize(c.role) }}</span>
               </div>
             </template>
-            <MdPreview :editorId="index" :modelValue="c.content" />
-            <!-- <p class="text">
-              <el-input v-model="c.content" style="width: 100%" :rows="3" type="textarea"/>
-            </p> -->
+            <!-- <MdPreview :editorId="index" :modelValue="c.content" /> -->
+            <p class="text">
+              <el-input v-model="c.content" style="width: 100%" :rows="3" type="textarea" />
+            </p>
           </el-card>
         </el-scrollbar>
         <el-input v-model="question" style="width: 100%" :rows="3" type="textarea" placeholder="Please input" />
         <el-button type="primary" @click="ask" style="margin-top: 10px">Ask</el-button>
+        <el-button @click="clearConversation" style="margin-top: 10px">Clear conversation</el-button>
       </el-col>
     </el-row>
+
+    <el-dialog v-model="affectedComponentDialogVisible" title="Possibly affected Components" width="1200">
+      <el-table :data="gridData" highlight-current-row @row-click="selectComponent">
+        <el-table-column property="microService" label="Micro-Service" width="140" />
+        <el-table-column property="type" label="Type" width="100" />
+        <el-table-column property="systemModule" label="System Module" width="200" />
+        <el-table-column property="name" label="Name" width="200" />
+        <el-table-column property="description" label="Description" />
+      </el-table>
+    </el-dialog>
   </div>
 </template>
 
@@ -100,6 +111,8 @@ const categories = [
   { value: 'systemModule', label: 'System Module' }
 ]
 
+const affectedComponentDialogVisible = ref(false)
+
 const form = reactive({
   direction: 'ancestors',
   category: 'component',
@@ -115,8 +128,9 @@ const graphData = {
 
 const graphOptions = ref(getTreeOptions(graphData, form.direction));
 
-let conversations = ref([]);
-let question = ref('');
+const conversations = ref([]);
+const question = ref('');
+const gridData = ref([]);
 
 function setDefault(direction) {
   if (direction === 'ancestors') {
@@ -137,27 +151,62 @@ async function retrieve() {
 }
 
 async function ask() {
-  const data = {
-    direction: form.direction,
-    component: {
-      category: form.category,
-      name: form.name,
-      systemModule: form.systemModule,
-      microService: form.microService
-    },
-    changeDescription: question.value
-  };
+  const userQuestion = question.value;
+  question.value = '';
 
-  const response = await axios.post(`/api/ai/affected-from-component`, data);
-  console.log(response);
-  conversations.value.push({
-    author: 'user',
-    content: question.value
-  })
-  conversations.value.push({
-    author: 'asistant',
-    content: response.data.response
-  })
+  if (userQuestion) {
+    conversations.value.push({
+      role: 'user',
+      content: userQuestion
+    });
+  }
+
+  if (conversations.value.length > 1) {
+    // Continue conversation which requires passing all history
+    const response = await axios.post('/api/ai/chat', { messages: conversations.value });
+    conversations.value.push({
+      role: 'asistant',
+      content: response.data.data
+    });
+  } else if (!form.name) {
+    // Business question without component entry point
+    const response = await axios.post('/api/ai/affected-from-business', { changeDescription: userQuestion });
+    gridData.value = response.data.data;
+    affectedComponentDialogVisible.value = true;
+  } else {
+    const data = {
+      direction: form.direction,
+      component: {
+        category: form.category,
+        name: form.name,
+        systemModule: form.systemModule,
+        microService: form.microService
+      },
+      changeDescription: question.value
+    };
+
+    const response = await axios.post('/api/ai/affected-from-component', data);
+    conversations.value.push({
+      role: 'asistant',
+      content: response.data.data
+    });
+  }
+}
+
+async function selectComponent(selectVertex) {
+  form.systemModule = selectVertex.systemModule;
+  form.name = selectVertex.name;
+  form.microService = selectVertex.microService;
+  form.direction = 'descendants';
+
+  affectedComponentDialogVisible.value = false;
+
+  await retrieve();
+  await ask();
+}
+
+function clearConversation() {
+  conversations.value.length = 0;
 }
 </script>
 

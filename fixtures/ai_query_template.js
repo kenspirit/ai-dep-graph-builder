@@ -196,9 +196,34 @@ ${vertex.sourceCode}
   return message;
 }
 
+function getComponentsMatchedDescription(changeDescription, vertices) {
+  let message = '```json\n[';
+
+  for (const vertex of vertices) {
+    if (!vertex.description) {
+      continue;
+    }
+
+    message += JSON.stringify(vertex) + ',';
+  }
+  message += ']\n```';
+
+  message += `
+--------------------------------------------------
+Please check above JSON array of components with description, and filter out the ones whose description has strong relationship with the requirement **${changeDescription}**.
+
+The output should be a full JSON format in one response, without other text, comment or markdown syntax.
+
+If no components matched, just return \`[]\`.
+`;
+
+  return message;
+}
+
 export default {
   getFunctionDescription,
   getFunctionDependencies,
   getRequiredModuleDependencies,
   getAffectedFromComponent,
+  getComponentsMatchedDescription
 };

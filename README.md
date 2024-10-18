@@ -161,7 +161,7 @@ By Feature/Module with optional sub-level roles' separation:
 This is the actual Vertex that tracks code dependency.  It has extra properties beside `name`, `type`, `description`:
 
 - name: It can be Function Name / Field Name / API URL / Queue Name / Table Name / Store Procedure Name
-- type: It can be `Function` / `Field` / `Interface` (API / Queue / Table / Store Procedure), etc.
+- type: It can be `UI`, `Function` / `Field` / `Interface` (API / Queue / Table / Store Procedure), etc.
 - microService: Part of the unique constraint of Component.
 - systemModule: Part of the unique constraint of Component.  Easier CRUD and graph search starting point.
 - sourceCode: Source code of this component.  It can be function signature & body, API route validation code, etc.

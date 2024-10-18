@@ -183,6 +183,10 @@ class GraphBuilder {
     return this.connector.getVerticesByCategory(category);
   }
 
+  async getVerticesByTypesWithDescription(category, types) {
+    return this.connector.getVerticesByTypesWithDescription(category, types);
+  }
+
   async getDescendants(vertex) {
     // Format should be as below and the sub-paths, such as [1, 2], should not be included.
     // The paths should be the vertex identifiers.

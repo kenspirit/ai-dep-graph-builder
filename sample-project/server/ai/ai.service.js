@@ -1,6 +1,6 @@
 import { AiProvider } from '../../../ai-provider.js';
 import AiQueryTemplate from '../../../fixtures/ai_query_template.js';
-import { getDescendants, getAncestors } from '../graph/graph.service.js';
+import { getDescendants, getAncestors, graphBuilder } from '../graph/graph.service.js';
 import config from '../../../sample.config.js';
 
 const aiProvider = new AiProvider(config.defaultAiProvider, config.aiProviders[config.defaultAiProvider]);
@@ -22,7 +22,9 @@ async function affectedFromComponent(direction, component, changeDescription) {
 }
 
 async function affectedFromBusiness(changeDescription) {
-  // return graphBuilder.getVerticesByIds(ids);
+  const vertices = await graphBuilder.getVerticesByTypesWithDescription('Component', ['API', 'UI']);
+  const affectedComponents = await aiProvider.chat(AiQueryTemplate.getComponentsMatchedDescription(changeDescription, vertices));
+  return JSON.parse(affectedComponents);
 }
 
 export {

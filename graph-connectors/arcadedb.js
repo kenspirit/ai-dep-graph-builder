@@ -178,6 +178,11 @@ CREATE INDEX IF NOT EXISTS ON SystemModule (microService, name) UNIQUE;`;
     return result.map(assignCategory);
   }
 
+  async getVerticesByTypesWithDescription(category, types) {
+    const result = await this._dbCommand('query', undefined, `SELECT FROM ${category} WHERE type IN :types AND description is not null;`, { types });
+    return result.map(assignCategory);
+  }
+
   async createEdgeByVertices(fromVertex, toVertex, sessionId) {
     const existingEdge = await this.getEdgeByVertices(fromVertex, toVertex);
     if (existingEdge) {
