@@ -61,6 +61,12 @@ async function getAncestors(vertex) {
   return _massageResult(result);
 }
 
+async function getAllAffected(vertex) {
+  const descendants = await graphBuilder.getDescendants(vertex);
+  const ancestors = await graphBuilder.getAncestors(vertex);
+  return _massageResult(ancestors.concat(descendants));
+}
+
 async function getVerticesByIds(ids) {
   return graphBuilder.getVerticesByIds(ids);
 }
@@ -69,5 +75,6 @@ export {
   graphBuilder,
   getDescendants,
   getAncestors,
+  getAllAffected,
   getVerticesByIds
 };

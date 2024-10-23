@@ -169,8 +169,23 @@ ${moduleCode}
 `;
 }
 
-function getAffectedFromComponent(direction, component, changeDescription, graph) {
-  let message = `Please based on the provided source code and call chain, provide me the updated implementation on all required parts if I want to support ${changeDescription}, in \`${component.name}\` of \`${component.systemModule}\`.
+function getAffectedFromComponent(component, changeDescription, graph = { vertices: [] }, updatedSource) {
+  let message = '';
+
+  if (changeDescription) {
+    message += `I want to support ${changeDescription}.\n`;
+  }
+  if (updatedSource) {
+    message += `Source code of Component \`${component.name}\` of \`${component.systemModule}\` has been changed to:
+
+\`\`\`javascript
+\${updatedSource}
+\`\`\`
+`;
+  }
+
+  message += `Based on the provided source code and call chain of other related components in call chain,
+please advice what is the updated source code of one required to change.
 
 Ouput only needs to show the updated source code with below format:
 **Updated Source code of \`\${componentName}\`**:
@@ -179,7 +194,7 @@ Ouput only needs to show the updated source code with below format:
 \${updated source code}
 \`\`\`
 
-Please refer to below source code of each component and how they interacts with each others.
+Below is the existing source code of related components and how they interacts with each others.
 `;
 
   for (const vertex of graph.vertices) {

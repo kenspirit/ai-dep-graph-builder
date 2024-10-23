@@ -1,6 +1,6 @@
 import { AiProvider } from '../../../ai-provider.js';
 import AiQueryTemplate from '../../../fixtures/ai_query_template.js';
-import { getDescendants, getAncestors, graphBuilder } from '../graph/graph.service.js';
+import { getDescendants, getAncestors, getAllAffected, graphBuilder } from '../graph/graph.service.js';
 import config from '../../../sample.config.js';
 
 const aiProvider = new AiProvider(config.defaultAiProvider, config.aiProviders[config.defaultAiProvider]);
@@ -10,15 +10,25 @@ async function chat(messages) {
 }
 
 async function affectedFromComponent(direction, component, changeDescription) {
-  let vertices;
+  let graph;
+  let updatedSource = component.sourceCode;
 
   if (direction === 'descendants') {
-    vertices = await getDescendants(component);
+    graph = await getDescendants(component);
+  } else if (direction === 'ancestors') {
+    graph = await getAncestors(component);
   } else {
-    vertices = await getAncestors(component);
+    graph = await getAllAffected(component);
   }
 
-  return aiProvider.chat(AiQueryTemplate.getAffectedFromComponent(direction, component, changeDescription, vertices));
+  const componentInDB = graph.vertices.find((vertex) => {
+    return vertex.name === component.name && vertex.systemModule === component.systemModule && vertex.microService === component.microService;
+  });
+  if (componentInDB) {
+    component.sourceCode = componentInDB.sourceCode;
+  }
+
+  return aiProvider.chat(AiQueryTemplate.getAffectedFromComponent(component, changeDescription, graph, updatedSource));
 }
 
 async function affectedFromBusiness(changeDescription) {

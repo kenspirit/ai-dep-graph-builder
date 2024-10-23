@@ -13,15 +13,22 @@ This project is to build the code dependency graph with the asistance of AI.  Du
 
 ## Repo Components
 
-This tool includes four major components:
-1. API for graph data (Node, Edge) manipulation against Graph Database
+This tool includes below major components:
+- API for graph data (Node, Edge) manipulation against Graph Database  
+
   - Exported from `index.js`, mainly includes `GraphBuilder`, `AiProvider`, `AstParser` and some facilitated APIs
-2. AI adaptors
+
+- AI adaptors
   - Pre-defined `AiProvider` under directory `ai-providers`.
-3. Sample project providing restful API for graph component manipulation and visualization UI
-  - Under directory `sample-project`.  NO AI related feature.
-4. Graph data generation script for the sample project.
+
+- Graph data generation script for the sample project.
   - Script `repo.graph.builder.js` which builds code dependency graph for the sample project as a demonstration for API usage.
+
+- Sample project providing restful API for graph component manipulation and visualization UI
+  - Under directory `sample-project`.
+
+- Sample VSCode extension that calls RESTful API provided by Sample Project.
+  - Under directory `ai-buddy`.
 
 
 ## Usage
@@ -104,16 +111,20 @@ Vertex has four categories:
 - System Module
 - Component
 
-#### Business Module
+#### Business Module (e.g. Organization, Vertex)
 
-For example, when one BA asked "I want to add wildcast search support on the Organization name in Organization Search Page", the AI should knows it's talking about the Business Module for Organization, and then the graph engine can retrieve all related, especially children, Vertices starting from this Business Module Vertex.
-
-#### Micro-Service
-
-This is just from technical perspective, especially for the project which separates frontend and backend.  Making it one level of Vertex has better visual output as a tree starting from it, to System Module, and then down to the Component Vertices.
+* Set to System Module as grouping purpose
+* Should be correctly pinpointed by AI given BA’s question
+* Used for top-down search all related System Module / Components
 
 
-#### System Module
+#### Micro-Service (e.g. sample-project)
+
+* Technical Perspective
+* Grouping purpose for better visualization or query
+
+
+#### System Module (e.g. /vertex/vertex.routes.js)
 
 Grouping code files by Roles or by Feature/Module are two popular choices.  This Dependency Graph project would prefer the second choice, but it does not affect your usage only if you name the Vertex in the pattern suits your project.  Name of the System Module Vertex could simply be the folder name, file name or the combination of it.
 
