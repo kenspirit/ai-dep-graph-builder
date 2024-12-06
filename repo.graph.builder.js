@@ -22,15 +22,19 @@ async function persistVertex(vertex) {
   await builder.createVertex(vertex);
 }
 
-async function _getModuleDependencyMapping(filePath, rawContent) {
-  const requiredModuleDependencies = astParser.getRequiredModuleDependencies(rawContent);
+function _resolveRelativeModulePath(filePath, relativeModulePath) {
+  const dependencyPath = path.resolve(rootDir, path.dirname(filePath), relativeModulePath);
+  const dependencyName = dependencyPath.replace(rootDir, '').replace(/\\/g, '/');
+  return { dependencyPath, dependencyName };
+}
+
+async function _getModuleDependencyMapping(filePath, requiredModuleDependencies) {
   const result = {};
-  for (const requiredModuleDependency of requiredModuleDependencies) {
-    const { identifier, source } = requiredModuleDependency;
+  for (const identifier in requiredModuleDependencies) {
+    const source = requiredModuleDependencies[identifier].source;
+
     if (source.startsWith('.')) {
-      const dependencyPath = path.resolve(path.dirname(filePath), source);
-      const dependencyName = dependencyPath.replace(rootDir, '').replace(/\\/g, '/');
-      result[identifier] = { dependencyPath, dependencyName };
+      result[identifier] = _resolveRelativeModulePath(filePath, source);
     } else {
       result[identifier] = { dependencyName: identifier };
     }
@@ -115,7 +119,8 @@ async function buildSystemModuleVerticesFromRouteModules() {
       //   dependencies: []
       // };
 
-      const moduleDependencyMap = await _getModuleDependencyMapping(filePath, rawContent);
+      const { requiredModuleDependencies } = astParser.getDependencies(rawContent);
+      const moduleDependencyMap = await _getModuleDependencyMapping(filePath, requiredModuleDependencies);
       const parsedRoutes = _getValidatorsAndActionMapping(moduleRoutes.basePath, rawContent);
 
       for (const route of moduleRoutes.routes) {
@@ -164,50 +169,37 @@ async function _getFunctionDescriptionThroughAI(functionSourceCode) {
   return response.description;
 }
 
-async function _getFunctionDependencies(functionSourceCode, moduleDependencyMap) {
-  const response = await aiProvider.getFunctionDependencies(functionSourceCode);
-  // Response format:
-  // {
-  //   "dependencies": [
-  //     {
-  //       "instanceName": "edgeService",
-  //       "method": "getEdge",
-  //       "usage": "edgeService.getEdge(from, to)"
-  //     },
-  //     {
-  //       "instanceName": "organizationModel",
-  //       "field": "localName"
-  //     }
-  //   ]
-  // }
+const NATIVE_MODULES = ['JSON', 'Set', 'Array', 'Map', 'console'];
 
-  // moduleDependencyMap format:
-  // {
-  //   edgeService: {
-  //     dependencyPath: 'C:\\Github\\ai-dep-graph-builder\\sample-project\\server\\edge\\edge.service.js',
-  //     dependencyName: '/edge/edge.service.js'
-  //   }
-  // }
-  // {
-  //   graphBuilder: {
-  //     dependencyPath: 'C:\\Github\\ai-dep-graph-builder\\sample-project\\server\\graph\\graph.service.js',
-  //     dependencyName: '/graph/graph.service.js'
-  //   }
-  // }
+function _convertInstanceAndFunctionDependencies(systemModuleName, moduleDependencyMap, dependencies = []) {
+  const result = dependencies.map(dependency => {
+    const isFunction = dependency.type === 'method';
 
-  const result = [];
-  for (const dependency of response.dependencies) {
-    const { instanceName, method, usage } = dependency;
-    const moduleDependency = moduleDependencyMap[instanceName];
-    if (!moduleDependency) {
-      console.warn(`Missing Dependency for route ${instanceName} in ${JSON.stringify(moduleDependencyMap)} for ${functionSourceCode}`);
-      continue;
+    const converted = {
+      public: dependency.public,
+      category: 'component',
+      name: dependency.instanceName,
+      systemModule: dependency.module === '$file' ? systemModuleName : dependency.module,
+      microService: microService,
+      type: isFunction ? 'Function' : 'Field',
+      sourceCode: isFunction ? dependency.sourceCode : dependency.instanceName,
+      dependencies: _convertInstanceAndFunctionDependencies(systemModuleName, moduleDependencyMap, dependency.dependencies)
+    };
+
+    if (converted.systemModule.startsWith('.')) {
+      // Resolve relative path
+      const { dependencyName } = _resolveRelativeModulePath(`.${systemModuleName}`, converted.systemModule);
+      converted.systemModule = dependencyName;
     }
-    dependency.dependencyName = moduleDependency.dependencyName;
-    result.push(dependency);
-  }
+    if (converted.systemModule === 'this') {
+      // Follows its parent system module
+      delete converted.systemModule;
+    }
 
-  return result;
+    return converted;
+  });
+
+  return result.filter(dependency => !NATIVE_MODULES.includes(dependency.systemModule));
 }
 
 async function buildSystemModuleVerticesFromNonRouteModules() {
@@ -225,42 +217,23 @@ async function buildSystemModuleVerticesFromNonRouteModules() {
     //   dependencies: []
     // };
 
-    const moduleDependencyMap = await _getModuleDependencyMapping(filePath, rawContent);
+    console.log(`========== Dependencies built for ${systemModuleName} ===========\n`);
+    const { requiredModuleDependencies, instanceAndfunctionDependencies } = astParser.getDependencies(rawContent);
+    // console.log('------ Original --------- ', JSON.stringify(instanceAndfunctionDependencies, null, 2));
 
-    for (const instanceName of Object.keys(loadedModule)) {
-      const instance = loadedModule[instanceName];
-      const isFunction = typeof instance === 'function';
+    const moduleDependencyMap = await _getModuleDependencyMapping(filePath, requiredModuleDependencies);
 
-      const component = {
-        category: 'component',
-        name: instanceName,
-        systemModule: systemModuleName,
-        microService: microService,
-        type: isFunction ? 'Function' : 'Field',
-        sourceCode: isFunction ? instance.toString() : `${instance}`,
-        dependencies: []
-      };
+    const moduleDependencies = _convertInstanceAndFunctionDependencies(systemModuleName, moduleDependencyMap, instanceAndfunctionDependencies.dependencies);
+    // console.log('------ Converted --------- ', JSON.stringify(moduleDependencies, null, 2));
 
-      if (isFunction) {
-        component.description = await _getFunctionDescriptionThroughAI(component.sourceCode);
-
-        const functionDependencies = await _getFunctionDependencies(component.sourceCode, moduleDependencyMap);
-
-        for (const dependency of functionDependencies) {
-          component.dependencies.push({
-            category: 'component',
-            name: dependency.method || dependency.field,
-            type: dependency.method ? 'Function' : 'Field',
-            systemModule: dependency.dependencyName
-          });
-        }
-      } else {
-        component.description = instanceName;
+    for (const dependency of moduleDependencies) {
+      // Only top level public functions are considered
+      if (dependency.public && dependency.type === 'Function' && dependency.sourceCode) {
+        dependency.description = await _getFunctionDescriptionThroughAI(dependency.sourceCode);
       }
 
-      // systemModule.dependencies.push(component);
-      await persistVertex(component);
-    };
+      await persistVertex(dependency);
+    }
 
     // await persistVertex(systemModule);
   }
