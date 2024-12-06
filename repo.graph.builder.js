@@ -50,6 +50,7 @@ function traverse(cursor, result) {
     // Start of a new route object definition
     result.push({ actions: [] });
   }
+
   if (node.type === 'pair' && node.firstChild.type === 'property_identifier') {
     const route = result[result.length - 1];
 
@@ -59,24 +60,24 @@ function traverse(cursor, result) {
         route[node.firstChild.text] = node.lastChild.text.replace(/['"]/g, '');
         break;
       case 'action':
-        const arrayNode = node.lastChild;
-        if (arrayNode.type === 'array') {
+        const actionNode = node.lastChild;
+        if (actionNode.type === 'array') {
           const route = result[result.length - 1];
-          for (let i = 0; i < arrayNode.namedChildCount; i++) {
-            const element = arrayNode.namedChild(i);
+          for (let i = 0; i < actionNode.namedChildCount; i++) {
+            const element = actionNode.namedChild(i);
             if (element.type === 'member_expression') {
               route.actions.push(element.text);
             }
           }
+        } else {
+          route.actions.push(actionNode.text);
         }
 
         break;
       case 'validators':
         route.validators = node.lastChild.text;
         // Collect info done for current route, prepare to the next route
-        cursor.gotoParent(); // Back to parent object
         cursor.gotoNextSibling();
-        traverse(cursor, result);
         break;
     }
   }
@@ -179,7 +180,7 @@ function _convertInstanceAndFunctionDependencies(systemModuleName, moduleDepende
       public: dependency.public,
       category: 'component',
       name: dependency.instanceName,
-      systemModule: dependency.module === '$file' ? systemModuleName : dependency.module,
+      systemModule: dependency.module === '$file' ? systemModuleName : (dependency.module || 'this'),
       microService: microService,
       type: isFunction ? 'Function' : 'Field',
       sourceCode: isFunction ? dependency.sourceCode : dependency.instanceName,
@@ -203,7 +204,12 @@ function _convertInstanceAndFunctionDependencies(systemModuleName, moduleDepende
 }
 
 async function buildSystemModuleVerticesFromNonRouteModules() {
-  const nonRouteModules = await loadModules(rootDir, /.*(?<!\.routes\.js)$/, true);
+  const fileMatchingPatterns = [
+    /^(?!.*\.(routes|test|spec)\.js$)/,
+    /^(?!.*\.json$).*$/,
+    /^(?!.*(asset_models|rolelist_models|schemas)).*$/
+  ]
+  const nonRouteModules = await loadModules(rootDir, fileMatchingPatterns, false);
 
   for (const result of nonRouteModules) {
     const { filePath, loadedModule, rawContent } = result;

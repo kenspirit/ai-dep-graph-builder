@@ -418,6 +418,8 @@ const NODE_TYPE_HANDLERS = {
   super: _identifierHandler,
   export_clause: _exportClauseHandler,
   object_pattern: _objectPatternHandler,
+  string: _identifierHandler,
+  number: _identifierHandler
 };
 
 function _captureDependency(instanceAndfunctionDependencies, instanceName) {
@@ -436,8 +438,8 @@ function _walkAndBuildDependency(scopeInstanceName, node, requiredModuleDependen
   const handler = NODE_TYPE_HANDLERS[node.type];
   if (handler) {
     dependentIdentifer = handler(scopeInstanceName, node, requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables) || '';
-  } else {
-    console.warn('====== Unhandled node type: ', node.type);
+  } else if (OPERATORS_OR_KEYWORDS.includes(node.type)) {
+    console.warn('====== Unhandled node type: ', node.type, node.text);
   }
 
   const topLevelName = dependentIdentifer.indexOf('.') > 0 ? dependentIdentifer.split('.')[0] : dependentIdentifer;
@@ -477,6 +479,10 @@ function _setExternalDependency(dependency, externalModuleDependency) {
 
 function _collectInnerDependencies(node, requiredModuleDependencies, instanceAndfunctionDependencies, level = 0) {
   // Special properties like $name, $type, $public are not dependencies
+  if (!node) {
+    return [];
+  }
+
   const dependencyNames = _getDependencyNames(node);
 
   if (dependencyNames.length === 0 && !_.isEmpty(node)) {
@@ -617,7 +623,7 @@ function _collectInnerDependencies(node, requiredModuleDependencies, instanceAnd
           instanceName: inspectedDependency.$name,
           type: _nodeType(inspectedDependency),
           public: inspectedDependency.$public,
-          module: inspectedDependency.$module,
+          module: inspectedDependency.$module || 'this',
           usage,
           sourceCode: inspectedDependency.$sourceCode,
           dependencies: innerDependencies
@@ -669,24 +675,29 @@ class AstParser {
   //   ]
   // }
   getDependencies(code) {
-    const tree = this.parser.parse(code);
-    const rootNode = tree.rootNode;
-    const requiredModuleDependencies = {};
-    const instanceAndfunctionDependencies = {};
+    try {
+      const tree = this.parser.parse(code);
+      const rootNode = tree.rootNode;
+      const requiredModuleDependencies = {};
+      const instanceAndfunctionDependencies = {};
 
-    _walkAndBuildDependency('', rootNode, requiredModuleDependencies, instanceAndfunctionDependencies);
+      _walkAndBuildDependency('', rootNode, requiredModuleDependencies, instanceAndfunctionDependencies);
 
-    // instanceAndfunctionDependencies is flatten dependencies for each method/field in file, no matter public or private
-    // Massage data into hierarchical structure
-    const massagedResult = { dependencies: [] };
+      // instanceAndfunctionDependencies is flatten dependencies for each method/field in file, no matter public or private
+      // Massage data into hierarchical structure
+      const massagedResult = { dependencies: [] };
 
-    _.each(instanceAndfunctionDependencies, (value, key) => {
-      value.$module = '$file';
-    });
+      _.each(instanceAndfunctionDependencies, (value, key) => {
+        value.$module = '$file';
+      });
 
-    massagedResult.dependencies.push(..._collectInnerDependencies(instanceAndfunctionDependencies, requiredModuleDependencies, instanceAndfunctionDependencies));
+      massagedResult.dependencies.push(..._collectInnerDependencies(instanceAndfunctionDependencies, requiredModuleDependencies, instanceAndfunctionDependencies));
 
-    return { requiredModuleDependencies, instanceAndfunctionDependencies: massagedResult };
+      return { requiredModuleDependencies, instanceAndfunctionDependencies: massagedResult };
+    } catch (error) {
+      console.error(`Error parsing code: \n${code}`, error);
+      throw error;
+    }
   }
 }
 

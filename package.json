@@ -8,6 +8,12 @@
   },
   "author": "Ken Chen",
   "license": "MIT",
+  "keywords": [
+    "AST",
+    "AI",
+    "code dependency",
+    "dependency graph"
+  ],
   "dependencies": {
     "axios": "^1.7.7",
     "joi": "^17.13.3",
@@ -16,5 +22,12 @@
     "tree-sitter": "^0.21.1",
     "tree-sitter-javascript": "^0.23.0"
   },
-  "type": "module"
+  "type": "module",
+  "files": [
+    "ai-providers/**/*",
+    "graph-connectors/**/*",
+    "ai-provider.js",
+    "ast-parser.js",
+    "index.js"
+  ]
 }
