@@ -26,7 +26,7 @@ app.use(
   })
 );
 
-loadModules(path.join(__dirname, 'server'), /.*\.routes\.js$/).then(routeModules => {
+loadModules(path.join(__dirname, 'server'), /.*\.routes\.js$/, true).then(routeModules => {
   routeModules.forEach(({ loadedModule }) => {
     const moduleRoutes = loadedModule.default;
     if (moduleRoutes.basePath && moduleRoutes.routes && Array.isArray(moduleRoutes.routes)) {

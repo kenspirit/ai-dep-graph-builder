@@ -1,7 +1,11 @@
 import path from 'path';
 import fs from 'fs/promises';
 
-export async function loadModules(dir, fileSuffix = '', withRawContent = false) {
+function _matchPattern(patterns, filePath) {
+  return patterns.every(pattern => pattern.test(filePath));
+}
+
+export async function loadModules(dir, filePattern = '', loadModule = false) {
   const results = [];
   const files = await fs.readdir(dir);
 
@@ -10,15 +14,15 @@ export async function loadModules(dir, fileSuffix = '', withRawContent = false) 
     const stat = await fs.stat(filePath);
 
     if (stat.isDirectory()) {
-      results.push(...await loadModules(filePath, fileSuffix, withRawContent));
-    } else if (!fileSuffix || fileSuffix.test(file)) {
-      const loadedModule = await import(path.join('file://', filePath));
-      if (withRawContent) {
-        const rawContent = await fs.readFile(filePath, 'utf8');
+      results.push(...await loadModules(filePath, filePattern, loadModule));
+    } else if (!filePattern || _matchPattern([].concat(filePattern), filePath)) {
+      const rawContent = await fs.readFile(filePath, 'utf8');
+      if (loadModule) {
+        const loadedModule = await import(path.join('file://', filePath));
         // filePath = filePath.replace(/\\\\/g, '\\');
         results.push({ filePath, loadedModule: loadedModule, rawContent });
       } else {
-        results.push({ filePath, loadedModule: loadedModule});
+        results.push({ filePath, rawContent });
       }
     }
   }
