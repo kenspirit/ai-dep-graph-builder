@@ -15,8 +15,10 @@ const aiProvider = new AiProvider(config.defaultAiProvider, config.aiProviders[c
 const builder = new GraphBuilder(config.graph.type, config.graph.connectionOptions);
 const astParser = new AstParser();
 
-const rootDir = path.join(__dirname, 'sample-project/server');
-const microService = 'dep-graph-builder';
+const rootDir = 'D:\\GitSource\\gsbn-revamp\\gsbn_pm_acs_svc\\app\\server\\';
+const microService = 'pm_acs_svc';
+// const rootDir = path.join(__dirname, 'sample-project/server');
+// const microService = 'dep-graph-builder';
 
 async function persistVertex(vertex) {
   await builder.createVertex(vertex);
@@ -134,7 +136,7 @@ async function buildSystemModuleVerticesFromRouteModules() {
           type: 'API',
           systemModule: systemModuleName,
           microService: microService,
-          description: route.description,
+          description: route.description || name,
           sourceCode: parsedRoute.validators,
           dependencies: []
         };
@@ -170,7 +172,7 @@ async function _getFunctionDescriptionThroughAI(functionSourceCode) {
   return response.description;
 }
 
-const NATIVE_MODULES = ['JSON', 'Set', 'Array', 'Map', 'console'];
+const NATIVE_MODULES = ['JSON', 'Set', 'Array', 'Map', 'console', 'Error', 'Buffer', 'Promise', 'Uint8Array', 'Date', 'process', 'require'];
 
 function _convertInstanceAndFunctionDependencies(systemModuleName, moduleDependencyMap, dependencies = []) {
   const result = dependencies.map(dependency => {
@@ -189,7 +191,7 @@ function _convertInstanceAndFunctionDependencies(systemModuleName, moduleDepende
 
     if (converted.systemModule.startsWith('.')) {
       // Resolve relative path
-      const { dependencyName } = _resolveRelativeModulePath(`.${systemModuleName}`, converted.systemModule);
+      const { dependencyName } = _resolveRelativeModulePath(`./${systemModuleName}`, converted.systemModule);
       converted.systemModule = dependencyName;
     }
     if (converted.systemModule === 'this') {
@@ -235,7 +237,10 @@ async function buildSystemModuleVerticesFromNonRouteModules() {
     for (const dependency of moduleDependencies) {
       // Only top level public functions are considered
       if (dependency.public && dependency.type === 'Function' && dependency.sourceCode) {
-        dependency.description = await _getFunctionDescriptionThroughAI(dependency.sourceCode);
+        // dependency.description = await _getFunctionDescriptionThroughAI(dependency.sourceCode);
+        dependency.description = 'Testing';
+      } else {
+        dependency.description = dependency.name;
       }
 
       await persistVertex(dependency);
@@ -253,7 +258,7 @@ async function buildGraph() {
     type: 'mono'
   });
 
-  await buildSystemModuleVerticesFromRouteModules();
+  // await buildSystemModuleVerticesFromRouteModules();
   await buildSystemModuleVerticesFromNonRouteModules();
 }
 

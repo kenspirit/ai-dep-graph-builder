@@ -72,7 +72,7 @@ class GraphBuilder {
       } else if (dependency.category === 'component') {
         dependency.microService = vertex.microService;
         if (!dependency.systemModule) {
-          dependency.systemModule = vertex.name;
+          dependency.systemModule = vertex.systemModule;
         }
       }
 
@@ -101,7 +101,9 @@ class GraphBuilder {
       if (existingVertex) {
         existingVertex.description = vertex.description || existingVertex.description;
         if (vertex.category === 'component') {
-          existingVertex.sourceCode = vertex.sourceCode;
+          if (vertex.sourceCode) {
+            existingVertex.sourceCode = vertex.sourceCode;
+          }
           await this.connector.updateVertex(existingVertex, sessionId);
         } else if (vertex.category === 'systemModule') {
           existingVertex.businessModules = vertex.businessModules;

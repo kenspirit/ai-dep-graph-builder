@@ -100,10 +100,24 @@ A `Uses` B means that A `depends` on B, which is `A -> B`.  When this relationsh
 
 ### Vertex (Node) categories in Dependency Graph
 
+Vertex Schema
+```javascript
+{
+  name: '', // Function Name / Field Name / API URL / Queue Name / Table Name / Store Procedure Name
+  type: '', // `UI`, `Function` / `Field` / `Interface` (API / Queue / Table / Store Procedure), etc.
+  description: '', // Generated from AI if it's Function
+  microService: '',
+  businessModules: [''], // Related Business Module that groups the Micro-Service if required.
+  public: true/false,
+  systemModule: '', // JavaScript file name, Java Full-qualified Name, such as `user/user.controller.js`, `com.xxx.user.UserController.java`
+  sourceCode: '' // Source Code of Function, mainly
+}
+```
+
 Vertex has three basic properties:
-- name: Brief name of the Vertex and should be unique in same category
-- type: Type identifier within same category if required.
-- description: Long description of one Vertex.  It must be in detail, especially for Business Module, System Module, Function type Component, etc.  It is provided to AI as RAG with your question so that it can reason out which vertices to look up.
+- `name`: Brief name of the Vertex and should be unique in same category
+- `type`: Type identifier within same category if required.
+- `description`: Long description of one Vertex.  It must be in detail, especially for Business Module, System Module, Function type Component, etc.  It is provided to AI as RAG with your question so that it can reason out which vertices to look up.
 
 Vertex has four categories:
 - Business Module
@@ -171,11 +185,12 @@ By Feature/Module with optional sub-level roles' separation:
 
 This is the actual Vertex that tracks code dependency.  It has extra properties beside `name`, `type`, `description`:
 
-- name: It can be Function Name / Field Name / API URL / Queue Name / Table Name / Store Procedure Name
-- type: It can be `UI`, `Function` / `Field` / `Interface` (API / Queue / Table / Store Procedure), etc.
-- microService: Part of the unique constraint of Component.
-- systemModule: Part of the unique constraint of Component.  Easier CRUD and graph search starting point.
-- sourceCode: Source code of this component.  It can be function signature & body, API route validation code, etc.
+- `name`: It can be Function Name / Field Name / API URL / Queue Name / Table Name / Store Procedure Name
+- `type`: It can be `UI`, `Function` / `Field` / `Interface` (API / Queue / Table / Store Procedure), etc.
+- `public`: `true`/`false` indicating its public interface or not.
+- `microService`: Part of the unique constraint of Component.
+- `systemModule`: Part of the unique constraint of Component.  Easier CRUD and graph search starting point.
+- `sourceCode`: Source code of this component.  It can be function signature & body, API route validation code, etc.
 
 
 ### Graph Building

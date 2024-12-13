@@ -171,7 +171,7 @@ function _functionNodeHander(scopeInstanceName, node, requiredModuleDependencies
   const funArgIdentifiers = funArgs.descendantsOfType('identifier').map(arg => arg.text);
 
   if (identifier) {
-    // Anonymous function is annoyed
+    // Anonymous function is ignored
     const dependency = _captureDependency(instanceAndfunctionDependencies, identifier);
     dependency.$sourceCode = node.text;
     dependency.$type = 'method';
@@ -212,19 +212,24 @@ function _identifierHandler(scopeInstanceName, node, requiredModuleDependencies,
   return node.text;
 }
 
-const OPERATORS_OR_KEYWORDS = ['{', '}', ',', ';', '@', 'export', 'return', 'await', '\'', '"', '+', '-', '?', ':', '(', ')', '>', '<', '>=', '<=', '==', '===', '!=', '!==', '&&', '||', '!',];
+const OPERATORS_OR_KEYWORDS = ['{', '}', ',', ';', '@', 'export', 'return', 'await', 'comment', '\'', '"', '+', '-', '?', ':', '(', ')', '>', '<', '>=', '<=', '==', '===', '!=', '!==', '&&', '||', '!',];
 
 function _assignmentExpressionHandler(scopeInstanceName, node, requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables) {
   const children = node.children;
   if (children[0].type === 'member_expression' && children[0].text.indexOf('module.exports') === 0) {
+    // module.exports = { ... };
     // module.exports = Parser;
     // module.exports.Query = Query;
     const assignmentIdentifier = _walkAndBuildDependency('', children[2], requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables);
 
     if (children[0].text === 'module.exports') {
-      const dependency = _captureDependency(instanceAndfunctionDependencies, assignmentIdentifier);
-      dependency.$public = true;
+      // assignmentIdentifier can be empty string when it's exported like `module.exports = { ... }`
+      if (assignmentIdentifier) {
+        const dependency = _captureDependency(instanceAndfunctionDependencies, assignmentIdentifier);
+        dependency.$public = true;
+      }
     } else {
+      // module.exports.Query = Query;
       const exportedFieldIdentifier = children[0].text.replace('module.exports.', '');
 
       const dependency = _captureDependency(instanceAndfunctionDependencies, exportedFieldIdentifier);
@@ -244,7 +249,9 @@ function _assignmentExpressionHandler(scopeInstanceName, node, requiredModuleDep
 function _generalExpressionHandler(scopeInstanceName, node, requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables) {
   if (node.type === 'subscript_expression' && node.text.indexOf('(') === -1) {
     // If not a function call, then it's possible a member accessment like: xxx.yyy.zzz[0]
-    return node.text;
+    // Temply ignore the content inside bracket
+    // TODO: Go deep
+    return node.text.replace(/\[.*\]/, '');
   }
 
   const children = node.children;
@@ -349,7 +356,16 @@ function _objectPatternHandler(scopeInstanceName, node, requiredModuleDependenci
       }
 
       let identifier;
-      if (child.type === 'shorthand_property_identifier_pattern') {
+      if (child.type === 'shorthand_property_identifier') {
+        identifier = child.text;
+        if (localScopeVariables.includes(identifier)) {
+          continue;
+        }
+        const dependency = _captureDependency(instanceAndfunctionDependencies, identifier);
+        if (instanceAndfunctionDependencies[identifier] && level === 0) {
+          dependency.$public = true;
+        }
+      } else if (child.type === 'shorthand_property_identifier_pattern') {
         identifier = child.text;
         if (localScopeVariables.includes(identifier)) {
           continue;
@@ -367,9 +383,15 @@ function _objectPatternHandler(scopeInstanceName, node, requiredModuleDependenci
         }
         const dependency = _captureDependency(instanceAndfunctionDependencies, identifier);
         dependency[scopeInstanceName] = { $name: scopeInstanceName, $usage: '$property', $sourceProperty: child.children[0].text };
+      } else if (child.type === 'pair') {
+        _walkAndBuildDependency(scopeInstanceName, child.children[2], requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables);
       }
     }
   }
+}
+
+function _ignoreHandler() {
+  // Ignore comment
 }
 
 const NODE_TYPE_HANDLERS = {
@@ -403,7 +425,7 @@ const NODE_TYPE_HANDLERS = {
   throw_statement: _generalExpressionHandler,
   spread_element: _generalExpressionHandler,
   parenthesized_expression: _generalExpressionHandler,
-  object: _generalExpressionHandler,
+  object: _objectPatternHandler,
   pair: _objectPairHandler,
   export_statement: _generalExpressionHandler,
   decorator: _generalExpressionHandler,
@@ -418,8 +440,7 @@ const NODE_TYPE_HANDLERS = {
   super: _identifierHandler,
   export_clause: _exportClauseHandler,
   object_pattern: _objectPatternHandler,
-  string: _identifierHandler,
-  number: _identifierHandler
+  comment: _ignoreHandler
 };
 
 function _captureDependency(instanceAndfunctionDependencies, instanceName) {
@@ -465,18 +486,6 @@ function _nodeType(node) {
   return (node.$usage || '').indexOf('(') > 0 ? 'method' : 'field';
 }
 
-function _setExternalDependency(dependency, externalModuleDependency) {
-  if (externalModuleDependency.isDefault) {
-    dependency.module = externalModuleDependency.source;
-  } else if (dependency.externalSource.isNamespace) {
-    dependency.instanceName = dependency.instanceName.replace(`${dependency.module}.`, '');
-    dependency.module = dependency.externalSource.source;
-  } else {
-    dependency.module = externalModuleDependency.source;
-    dependency.instanceName = externalModuleDependency.sourceProperty;
-  }
-}
-
 function _collectInnerDependencies(node, requiredModuleDependencies, instanceAndfunctionDependencies, level = 0) {
   // Special properties like $name, $type, $public are not dependencies
   if (!node) {
@@ -504,36 +513,44 @@ function _collectInnerDependencies(node, requiredModuleDependencies, instanceAnd
     };
 
     if (dependencyName !== topLevelName) {
-      dependency.module = topLevelName;
-      dependency.instanceName = dependencyName.replace(`${topLevelName}.`, '');
+      const topLevelModule = instanceAndfunctionDependencies[topLevelName];
 
-      if (instanceAndfunctionDependencies[topLevelName]) {
+      if (topLevelModule) {
         dependency.module = 'this';
         dependency.instanceName = dependencyName;
 
-        const fieldConstructor = _.find(instanceAndfunctionDependencies[topLevelName], (value, key) => value.$type === 'constructor');
+        const fieldConstructor = _.find(topLevelModule, (value, key) => value.$type === 'constructor');
         if (fieldConstructor) {
-          // Needs to add dependency to original module
-          const module = fieldConstructor.$name;
-          const cloned = _.clone(dependency);
-          cloned.module = module;
-          cloned.instanceName = dependencyName.replace(`${topLevelName}.`, `${module}.`);
-          if (requiredModuleDependencies[module]) {
-            cloned.module = requiredModuleDependencies[module].source;
-            cloned.externalSource = requiredModuleDependencies[module];
-          }
+          if (topLevelModule.$public) {
+            // Needs to add dependency to original module
+            const module = fieldConstructor.$name;
+            const cloned = _.clone(dependency);
+            cloned.module = module;
+            cloned.instanceName = dependencyName.replace(`${topLevelName}.`, `${module}.`);
+            if (requiredModuleDependencies[module]) {
+              cloned.module = requiredModuleDependencies[module].source;
+              cloned.externalSource = requiredModuleDependencies[module];
+            }
 
-          dependency.dependencies = [cloned];
+            dependency.dependencies = [cloned];
+          } else {
+            // Needs to add dependency to constructor module
+            dependency.module = fieldConstructor.$name;
+            dependency.instanceName = dependency.instanceName.replace(`${topLevelName}.`, `${dependency.module}.`);
+            dependency.usage = dependency.usage.replace(`${topLevelName}.`, `${dependency.module}.`);
+          }
         }
       }
+
       if (requiredModuleDependencies[dependency.module]) {
         dependency.externalSource = requiredModuleDependencies[dependency.module];
-        if (dependency.externalSource.isDefault) {
-          dependency.module = 'default';
-        } else if (dependency.externalSource.isNamespace) {
+        dependency.module = dependency.externalSource.source;
+        if (dependency.externalSource.isNamespace) {
           dependency.module = dependency.externalSource.source;
           dependency.instanceName = dependencyName.replace(`${topLevelName}.`, '');
         }
+      } else {
+        dependency.module = 'this';
       }
     } else if (topLevelName === 'this') {
       dependency.module = 'this';

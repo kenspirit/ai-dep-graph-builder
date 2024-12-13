@@ -44,6 +44,7 @@ CREATE PROPERTY SystemModule.microService IF NOT EXISTS STRING;
 CREATE PROPERTY SystemModule.businessModules IF NOT EXISTS LIST OF STRING;
 
 CREATE VERTEX TYPE Component IF NOT EXISTS EXTENDS VertexBase;
+CREATE PROPERTY Component.public IF NOT EXISTS BOOLEAN;
 CREATE PROPERTY Component.microService IF NOT EXISTS STRING;
 CREATE PROPERTY Component.systemModule IF NOT EXISTS STRING;
 CREATE PROPERTY Component.sourceCode IF NOT EXISTS STRING;
@@ -126,7 +127,7 @@ CREATE INDEX IF NOT EXISTS ON SystemModule (microService, name) UNIQUE;`;
       case 'systemModule':
         return `CREATE VERTEX SystemModule SET name = :name, type = :type, businessModules = :businessModules, microService = :microService;`;
       case 'component':
-        return `CREATE VERTEX Component SET name = :name, type = :type, microService = :microService, systemModule = :systemModule, sourceCode = :sourceCode, description = :description;`;
+        return `CREATE VERTEX Component SET name = :name, type = :type, microService = :microService, systemModule = :systemModule, sourceCode = :sourceCode, description = :description, public = :public;`;
     }
   }
 
@@ -139,7 +140,7 @@ CREATE INDEX IF NOT EXISTS ON SystemModule (microService, name) UNIQUE;`;
   _getVertexUpdateCommand(vertex) {
     switch (vertex.category) {
       case 'component':
-        return `UPDATE Component SET sourceCode = :sourceCode, description = :description  WHERE @rid = ${vertex['@rid']};`;
+        return `UPDATE Component SET sourceCode = :sourceCode, description = :description, public = :public  WHERE @rid = ${vertex['@rid']};`;
       case 'systemModule':
         return `UPDATE SystemModule SET businessModules = :businessModules WHERE @rid = ${vertex['@rid']};`;
     }
