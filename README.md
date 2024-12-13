@@ -109,7 +109,7 @@ Vertex Schema
   microService: '',
   businessModules: [''], // Related Business Module that groups the Micro-Service if required.
   public: true/false,
-  systemModule: '', // JavaScript file name, Java Full-qualified Name, such as `user/user.controller.js`, `com.xxx.user.UserController.java`
+  systemModule: '', // Node.js package name, JavaScript file name, Java Full-qualified Name, such as `user/user.controller.js`, `com.xxx.user.UserController.java`
   sourceCode: '' // Source Code of Function, mainly
 }
 ```
