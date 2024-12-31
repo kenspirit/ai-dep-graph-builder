@@ -40,6 +40,29 @@ async function _generalExpressionHandler(scopeInstanceName, node, requiredModule
   }
 }
 
+async function _lambdaHandler(scopeInstanceName, node, requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables) {
+  const children = node.children;
+  for (let child of children) {
+    if (OPERATORS_OR_KEYWORDS.indexOf(child.type) !== -1) {
+      // Skipping those `return`, ;, operators (e.g. >), etc
+      continue;
+    }
+
+    if (child.type === 'identifier') {
+      try {
+        const spec = await hover(`file:///${filePath}`, child.startPosition.row, child.startPosition.column);
+        if (spec) {
+          localScopeVariables[child.text] = _removeGenericFromType(spec.substring(0, spec.indexOf(' ')));
+        }
+      } catch (e) {
+        console.error(`Failed to resolve type of parameter ${child.text} from LSP`, e);
+      }
+    } else {
+      await _walkAndBuildDependency(scopeInstanceName, child, requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables);
+    }
+  }
+}
+
 async function _functionNodeHander(scopeInstanceName, node, requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables) {
   // Local arguments that are not required to put in dependencies
   // Function or Method
@@ -254,6 +277,21 @@ function _getLocalScopeVariableType(localScopeVariables, node) {
   return node.text;
 }
 
+async function _getReturnTypeStartingWithObjectCreation(scopeInstanceName, node, requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables) {
+  const objType = _objectCreationHandler(scopeInstanceName, node.children[0], requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables);
+  if (node.children.length === 1) {
+    // If it's a single object creation, then return the type
+    return objType;
+  }
+
+  // It should be a chain of method invocation after creation
+  // Capture the dependency for the first invocation
+  _captureDependency(instanceAndfunctionDependencies, `${objType}.${node.children[2].text}()`);
+
+  // Try to get the return type from the last method invocation
+  return await _getInvokeMethodReturnType(node, true) || '$Object';
+}
+
 async function _getInvokeMethodManually(scopeInstanceName, node, requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables) {
   // Just use the short type name in parameters as current Hover API doesn't support fully qualified name
   if (node.children[0].type === 'method_invocation') {
@@ -285,7 +323,7 @@ async function _getInvokeMethodManually(scopeInstanceName, node, requiredModuleD
         } else if (arg.type === 'class_literal') {
           dependentIdentifer.push('Class');
         } else if (arg.type === 'object_creation_expression') {
-          const argType = _objectCreationHandler(scopeInstanceName, arg, requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables);
+          const argType = await _getReturnTypeStartingWithObjectCreation(scopeInstanceName, child, requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables);
           dependentIdentifer.push(_getShortName(argType));
         } else if (arg.type === 'string_literal') {
           dependentIdentifer.push('String');
@@ -345,6 +383,9 @@ async function _getInvokeMethodManually(scopeInstanceName, node, requiredModuleD
       // break after processing formal_parameters
       dependentIdentifer.push(child.text);
       break;
+    } else if (child.type === 'object_creation_expression') {
+      const argType = await _getReturnTypeStartingWithObjectCreation(scopeInstanceName, node, requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables);
+      dependentIdentifer.push(_getShortName(argType));
     } else {
       // (, ) or . are directly added
       dependentIdentifer.push(child.text);
@@ -435,7 +476,7 @@ function _getShortName(name) {
 }
 
 function _getTypeName(node, requiredModuleDependencies) {
-  let typeIdentifier = _oneChildrenOfType(node, 'type_identifier');
+  let typeIdentifier = _oneChildrenOfType(node, 'type_identifier') || _oneChildrenOfType(node, 'catch_type');
   if (typeIdentifier) {
     return _getRequiredModuleDependency(typeIdentifier.text, requiredModuleDependencies);
   }
@@ -484,7 +525,7 @@ function _identifierHandler(scopeInstanceName, node, requiredModuleDependencies,
   return node.text;
 }
 
-const OPERATORS_OR_KEYWORDS = ['{', '}', ',', ';', '@', 'extends', 'implements', 'return', 'await', 'comment', 'class', 'if', 'else', 'try', 'catch', '\'', '"', '+', '-', '?', ':', '(', ')', '>', '<', '>=', '<=', '==', '===', '!=', '!==', '&&', '||', '!',];
+const OPERATORS_OR_KEYWORDS = ['{', '}', ',', ';', '@', 'extends', 'implements', 'return', 'await', 'comment', 'class', 'if', 'else', 'try', 'catch', 'break', 'continue', '\'', '"', '+', '-', '?', ':', '(', ')', '>', '<', '>=', '<=', '==', '===', '!=', '!==', '&&', '||', '!',];
 
 async function _forStatementHandler(scopeInstanceName, node, requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables) {
   const variableDeclaration = _oneChildrenOfType(node, 'local_variable_declaration');
@@ -856,7 +897,7 @@ const NODE_TYPE_HANDLERS = {
   class_literal: _classLiteralHandler,
   object_creation_expression: _objectCreationHandler,
   field_access: _fieldAccessHandler,
-  lambda_expression: _generalExpressionHandler,
+  lambda_expression: _lambdaHandler,
 };
 
 function _captureDependency(instanceAndfunctionDependencies, instanceName) {
@@ -895,7 +936,9 @@ function _nodeType(node) {
 }
 
 const COMMON_JAVA_TYPES = ['String', 'Integer', 'Long', 'Double', 'Float', 'Boolean', 'Char', 'Date', 'Object', 'Class', 'void',
+  'ArrayList', 'HashMap', 'HashSet', 'List', 'Map', 'Set', 'Calendar',
   'java.lang.String',
+  'java.util.Calendar',
   'java.util.Date',
   'java.util.HashMap',
   'java.util.Map',
@@ -939,6 +982,14 @@ function _collectInnerDependencies(node, requiredModuleDependencies, instanceAnd
     if (dependencyName.startsWith('this.')) {
       dependencyName = dependencyName.replace('this.', `${className}.`);
     }
+    let module;
+    if (dependencyName.indexOf('.') > 0 && dependencyName.indexOf('.') > dependencyName.indexOf('(')) {
+      // Ensure it's not something like `a().b()`
+      const endIndex = dependencyName.indexOf('(') === -1 ? undefined : dependencyName.indexOf('(');
+      module = dependencyName.substring(0, dependencyName.lastIndexOf('.', endIndex));
+    } else {
+      module = className;
+    }
 
     const dependency = {
       instanceName: dependencyName,
@@ -946,7 +997,7 @@ function _collectInnerDependencies(node, requiredModuleDependencies, instanceAnd
       sourceCode: inspectedDependency.$sourceCode,
       visibility: inspectedDependency.$visibility,
       type: _nodeType(inspectedDependency),
-      module: dependencyName.indexOf('.') > 0 ? dependencyName.substring(0, dependencyName.lastIndexOf('.')) : className,
+      module,
       dependencies: []
     };
 
