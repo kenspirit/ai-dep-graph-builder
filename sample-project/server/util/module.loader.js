@@ -5,7 +5,7 @@ function _matchPattern(patterns, filePath) {
   return patterns.every(pattern => pattern.test(filePath));
 }
 
-export async function loadModules(dir, filePattern = '', loadModule = false) {
+export async function loadModules(dir, filePattern = [], loadModule = false) {
   const results = [];
   const files = await fs.readdir(dir);
 

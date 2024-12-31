@@ -42,12 +42,15 @@ CREATE VERTEX TYPE MicroService IF NOT EXISTS EXTENDS VertexBase;
 CREATE VERTEX TYPE SystemModule IF NOT EXISTS EXTENDS VertexBase;
 CREATE PROPERTY SystemModule.microService IF NOT EXISTS STRING;
 CREATE PROPERTY SystemModule.businessModules IF NOT EXISTS LIST OF STRING;
+CREATE PROPERTY SystemModule.fileName IF NOT EXISTS STRING;
 
 CREATE VERTEX TYPE Component IF NOT EXISTS EXTENDS VertexBase;
+CREATE PROPERTY Component.visibility IF NOT EXISTS STRING;
 CREATE PROPERTY Component.public IF NOT EXISTS BOOLEAN;
 CREATE PROPERTY Component.microService IF NOT EXISTS STRING;
 CREATE PROPERTY Component.systemModule IF NOT EXISTS STRING;
 CREATE PROPERTY Component.sourceCode IF NOT EXISTS STRING;
+CREATE PROPERTY Component.fileName IF NOT EXISTS STRING;
 
 CREATE INDEX IF NOT EXISTS ON Component (microService, systemModule, name) UNIQUE;
 CREATE INDEX IF NOT EXISTS ON SystemModule (microService, name) UNIQUE;`;
@@ -125,9 +128,9 @@ CREATE INDEX IF NOT EXISTS ON SystemModule (microService, name) UNIQUE;`;
       case 'microService':
         return `CREATE VERTEX MicroService SET name = :name, type = :type;`;
       case 'systemModule':
-        return `CREATE VERTEX SystemModule SET name = :name, type = :type, businessModules = :businessModules, microService = :microService;`;
+        return `CREATE VERTEX SystemModule SET name = :name, type = :type, businessModules = :businessModules, microService = :microService, fileName = :fileName;`;
       case 'component':
-        return `CREATE VERTEX Component SET name = :name, type = :type, microService = :microService, systemModule = :systemModule, sourceCode = :sourceCode, description = :description, public = :public;`;
+        return `CREATE VERTEX Component SET name = :name, type = :type, microService = :microService, systemModule = :systemModule, sourceCode = :sourceCode, description = :description, public = :public, visibility = :visibility, fileName = :fileName;`;
     }
   }
 
@@ -140,9 +143,9 @@ CREATE INDEX IF NOT EXISTS ON SystemModule (microService, name) UNIQUE;`;
   _getVertexUpdateCommand(vertex) {
     switch (vertex.category) {
       case 'component':
-        return `UPDATE Component SET sourceCode = :sourceCode, description = :description, public = :public  WHERE @rid = ${vertex['@rid']};`;
+        return `UPDATE Component SET sourceCode = :sourceCode, description = :description, public = :public, visibility = :visibility, fileName = :fileName  WHERE @rid = ${vertex['@rid']};`;
       case 'systemModule':
-        return `UPDATE SystemModule SET businessModules = :businessModules WHERE @rid = ${vertex['@rid']};`;
+        return `UPDATE SystemModule SET businessModules = :businessModules, fileName = :fileName WHERE @rid = ${vertex['@rid']};`;
     }
   }
 

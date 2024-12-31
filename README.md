@@ -199,7 +199,8 @@ To build a code dependency graph for a project, it should probably go through be
 - Create `Business Module` type Vertices.  These vertices should normally be prepared by business analysis and they probabaly cannot be done through codebase scan.
 - Create `Micro-Service` type Vertices.  These vertices are normally 1-1 mapping to the code repositories.
 - Create `System Module` and `Component` type Vertices.  These should be done automatically by code scan.
-  - Take `repo.graph.builder` as a reference.
+  - Take `js.repo.graph.builder` or `java.repo.graph.builder` as a reference.
+  - `java.repo.graph.builder` utilizes [LSP](https://microsoft.github.io/language-server-protocol/) besides AST.  You can start one using [Eclipse JDT](https://github.com/eclipse-jdtls/eclipse.jdt.ls).
 
 
 Sample Vertices:

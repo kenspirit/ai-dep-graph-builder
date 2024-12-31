@@ -11,6 +11,8 @@ const VERTEX_SCHEMA = joi.object({
   category: joi.string().required().valid('businessModule', 'microService', 'systemModule', 'component'),
   name: joi.string().required(),
   type: joi.string().required(), // -- Class / File / UI / Function / Field / Interface (API URL/Queue/Table/Store Procedure)
+  fileName: joi.string(), // File name
+  visibility: joi.string(),
   public: joi.boolean().default(false),
   description: joi.string(),
   dependencies: joi.array().items(joi.link('#vertex')),
