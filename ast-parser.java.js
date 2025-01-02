@@ -281,10 +281,12 @@ function _getLocalScopeVariableType(localScopeVariables, node) {
   return node.text;
 }
 
-async function _getReturnTypeStartingWithObjectCreation(scopeInstanceName, node, requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables) {
-  const objType = _objectCreationHandler(scopeInstanceName, node.children[0], requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables);
-  if (node.children.length === 1) {
-    // If it's a single object creation, then return the type
+async function _getReturnTypeWithObjectCreation(scopeInstanceName, node, requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables) {
+  const args = _oneChildrenOfType(node, 'argument_list');
+  const objCreationNode = _oneChildrenOfType(node, 'object_creation_expression');
+  const objType = _objectCreationHandler(scopeInstanceName, objCreationNode, requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables);
+  if (!args) {
+    // If it's purely object creation, then return the type
     return objType;
   }
 
@@ -327,7 +329,7 @@ async function _getInvokeMethodManually(scopeInstanceName, node, requiredModuleD
         } else if (arg.type === 'class_literal') {
           dependentIdentifer.push('Class');
         } else if (arg.type === 'object_creation_expression') {
-          const argType = await _getReturnTypeStartingWithObjectCreation(scopeInstanceName, child, requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables);
+          const argType = await _getReturnTypeWithObjectCreation(scopeInstanceName, child, requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables);
           dependentIdentifer.push(_getShortName(argType));
         } else if (arg.type === 'string_literal') {
           dependentIdentifer.push('String');
@@ -388,7 +390,7 @@ async function _getInvokeMethodManually(scopeInstanceName, node, requiredModuleD
       dependentIdentifer.push(child.text);
       break;
     } else if (child.type === 'object_creation_expression') {
-      const argType = await _getReturnTypeStartingWithObjectCreation(scopeInstanceName, node, requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables);
+      const argType = await _getReturnTypeWithObjectCreation(scopeInstanceName, node, requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables);
       dependentIdentifer.push(_getShortName(argType));
     } else {
       // (, ) or . are directly added
