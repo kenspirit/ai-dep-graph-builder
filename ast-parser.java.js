@@ -71,6 +71,10 @@ async function _functionNodeHander(scopeInstanceName, node, requiredModuleDepend
     _oneChildrenOfType(node, 'private_property_identifier');
   if (identifier) {
     identifier = identifier.text;
+
+    if (node.type === 'constructor_declaration') {
+      identifier = scopeInstanceName;
+    }
   } else {
     identifier = '';
   }
@@ -81,7 +85,7 @@ async function _functionNodeHander(scopeInstanceName, node, requiredModuleDepend
   for (const child of argumentsNode.children) {
     if (child.type === 'formal_parameter') {
       // TODO: Handle modifiers
-      const argType = _getTypeName(child, requiredModuleDependencies);
+      const argType = _typeNodeHandler(child, requiredModuleDependencies);
       localScopeVariables[_oneChildrenOfType(child, 'identifier').text] = argType;
       argumentTypes.push(_getShortName(argType));
     }
@@ -366,7 +370,7 @@ async function _getInvokeMethodManually(scopeInstanceName, node, requiredModuleD
             // }
           }
         } else if (arg.type === 'cast_expression') {
-          dependentIdentifer.push(_getShortName(_getTypeName(arg.children[1], requiredModuleDependencies)));
+          dependentIdentifer.push(_getShortName(_typeNodeHandler(arg.children[1], requiredModuleDependencies)));
 
           await _walkAndBuildDependency(scopeInstanceName, arg.children[3], requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables);
         } else if (arg.type === 'field_access') {
@@ -410,11 +414,20 @@ async function _methodInvocationHandler(scopeInstanceName, node, requiredModuleD
     invokedMethod = await _getInvokeMethodManually(scopeInstanceName, node, requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables);
   } else {
     // Return type is not from last invocation as invokedMethod is from the first invocation
-    returnType = await _getInvokeMethodReturnType(node);
+    if (node.type === 'explicit_constructor_invocation') {
+      if (node.children[0].text === 'this') {
+        returnType = scopeInstanceName;
+      } else {
+        returnType = '$parent';
+      }
+    } else {
+      returnType = await _getInvokeMethodReturnType(node);
+    }
   }
 
   if (invokedMethod) {
     const dependency = _captureDependency(instanceAndfunctionDependencies, invokedMethod);
+    dependency.$type = node.type === 'explicit_constructor_invocation' ? 'constructor' : 'method';
     if (returnType) {
       dependency.$returnType = returnType;
     }
@@ -464,7 +477,7 @@ function _fieldAccessHandler(scopeInstanceName, node, requiredModuleDependencies
 
 function _classLiteralHandler(scopeInstanceName, node, requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables) {
   // Need to capture this when it's a method parameter
-  const typeIdentifier = _getTypeName(node, requiredModuleDependencies);
+  const typeIdentifier = _typeNodeHandler(node, requiredModuleDependencies);
   return typeIdentifier;
 }
 
@@ -476,18 +489,15 @@ function _getShortName(name) {
 }
 
 function _getTypeName(node, requiredModuleDependencies) {
-  let typeIdentifier = _oneChildrenOfType(node, 'type_identifier') || _oneChildrenOfType(node, 'catch_type');
-  if (typeIdentifier) {
-    return _getRequiredModuleDependency(typeIdentifier.text, requiredModuleDependencies);
+  if (node.type === 'type_identifier' || node.type === 'catch_type') {
+    return _getRequiredModuleDependency(node.text, requiredModuleDependencies);
   }
 
-  typeIdentifier = _oneChildrenOfType(node, 'generic_type');
-  if (typeIdentifier) {
-    return _getRequiredModuleDependency(_genericHandler(typeIdentifier).name, requiredModuleDependencies);
+  if (node.type === 'generic_type') {
+    return _getRequiredModuleDependency(_genericHandler(node).name, requiredModuleDependencies);
   }
 
-  typeIdentifier = _oneChildrenOfType(node, 'void_type');
-  if (typeIdentifier) {
+  if (node.type === 'void_type') {
     return 'void';
   }
 
@@ -514,7 +524,7 @@ function _getTypeName(node, requiredModuleDependencies) {
 }
 
 function _objectCreationHandler(scopeInstanceName, node, requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables) {
-  const typeIdentifier = _getTypeName(node, requiredModuleDependencies);
+  const typeIdentifier = _typeNodeHandler(node, requiredModuleDependencies);
   const externalSource = _getRequiredModuleDependency(typeIdentifier, requiredModuleDependencies);
   const dependency = _captureDependency(instanceAndfunctionDependencies, externalSource);
   dependency.$usage = 'constructor';
@@ -545,7 +555,7 @@ async function _forStatementHandler(scopeInstanceName, node, requiredModuleDepen
 
 async function _enhancedForStatementHandler(scopeInstanceName, node, requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables) {
   const identifier = _oneChildrenOfType(node, 'identifier').text;
-  const typeIdentifier = _typeNodeHandler(scopeInstanceName, node, requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables);
+  const typeIdentifier = _typeNodeHandler(node.children[2], requiredModuleDependencies);
 
   localScopeVariables[identifier] = typeIdentifier;
 
@@ -573,43 +583,40 @@ function _setVisibility(dependency, node, scopeInstanceName) {
   }
 }
 
-function _typeNodeHandler(scopeInstanceName, node, requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables) {
-  // node possible contains modifiers, type, declaration part
-  if (_oneChildrenOfType(node, 'type_identifier')) {
-    return _getTypeName(node, requiredModuleDependencies);
-  } else if (_oneChildrenOfType(node, 'array_type')) {
-    const arrayType = _oneChildrenOfType(node, 'array_type');
-    const dataType = arrayType.children[0].type;
-    switch (dataType) {
-      case 'integral_type':
-        if (arrayType.children[0].text === 'long') {
-          return 'Long[]';
-        } else if (arrayType.children[0].text === 'char') {
-          return 'Char[]';
-        }
+function _typeNodeHandler(node, requiredModuleDependencies) {
+  // node possible contains modifiers (optional), type, declaration part
+  let typeNode;
+  let typeIdentifier;
 
-        return 'Integer[]';
-      case 'floating_point_type':
-        if (arrayType.children[0].text === 'float') {
-          return 'Float[]';
-        }
-
-        return 'Double[]';
-      case 'type_identifier':
-        return `${arrayType.children[0].text}[]`;
+  if (node.children.length === 0) {
+    // Directly pass the type node instead of field declaration node
+    typeNode = node;
+  } else if (node.type === 'object_creation_expression') {
+    typeNode = node.children[1];
+  } else {
+    const modifiers = _oneChildrenOfType(node, 'modifiers');
+    if (modifiers) {
+      typeNode = node.children[1];
+    } else {
+      typeNode = node.children[0];
     }
-  } else if (_oneChildrenOfType(node, 'generic_type')) {
-    return _getTypeName(node, requiredModuleDependencies);
   }
 
-  return node.text;
+  if (typeNode.type === 'array_type') {
+    typeIdentifier = _getTypeName(typeNode.children[0], requiredModuleDependencies);
+    typeIdentifier = `${typeIdentifier}[]`;
+  } else {
+    typeIdentifier = _getTypeName(typeNode, requiredModuleDependencies);
+  }
+
+  return typeIdentifier;
 }
 
 async function _localVariableDeclarationHandler(scopeInstanceName, node, requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables) {
   // Basically the same as field declaration, but no need to capture the field name
   const fieldName = _oneDescendantOfType(node, 'identifier').text;
   const declarator = _oneChildrenOfType(node, 'variable_declarator');
-  const typeIdentifier = _typeNodeHandler(scopeInstanceName, node, requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables);
+  const typeIdentifier = _typeNodeHandler(node, requiredModuleDependencies);
 
   localScopeVariables[fieldName] = typeIdentifier;
 
@@ -622,13 +629,17 @@ async function _localVariableDeclarationHandler(scopeInstanceName, node, require
 
 async function _fieldDeclarationHandler(scopeInstanceName, node, requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables) {
   const declarator = _oneChildrenOfType(node, 'variable_declarator');
-  const typeIdentifier = _typeNodeHandler(scopeInstanceName, node, requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables);
+  const typeIdentifier = _typeNodeHandler(node, requiredModuleDependencies);
   const fieldName = _oneChildrenOfType(declarator, 'identifier').text;
 
-  const dependency = _captureDependency(instanceAndfunctionDependencies, fieldName);
+  const dependency = _captureDependency(instanceAndfunctionDependencies, scopeInstanceName ? `${scopeInstanceName}.${fieldName}` : fieldName);
   _setVisibility(dependency, node, scopeInstanceName);
 
-  dependency.$module = typeIdentifier
+  if (instanceAndfunctionDependencies.$visibility === 'private') {
+    dependency.$visibility = 'private';
+  }
+
+  dependency.$module = scopeInstanceName || typeIdentifier
   localScopeVariables[fieldName] = typeIdentifier;
 
   if (declarator) {
@@ -656,7 +667,7 @@ async function _classDeclarationHandler(scopeInstanceName, node, requiredModuleD
   const className = _oneChildrenOfType(node, 'identifier').text;
   const superClass = _oneChildrenOfType(node, 'superclass');
   const superInterfaces = _oneChildrenOfType(node, 'super_interfaces') || _oneChildrenOfType(node, 'extends_interfaces');
-  const fullName = `${requiredModuleDependencies.$package}.${className}`;
+  const fullName = `${scopeInstanceName || requiredModuleDependencies.$package}.${className}`;
 
   // Class in JS file is a top level object
   requiredModuleDependencies[fullName] = {
@@ -665,7 +676,7 @@ async function _classDeclarationHandler(scopeInstanceName, node, requiredModuleD
   };
 
   let requestRoot;
-  const dependency = _captureDependency(instanceAndfunctionDependencies, className);
+  const dependency = _captureDependency(instanceAndfunctionDependencies, fullName);
   _setVisibility(dependency, node);
 
   if (!classModifiers) {
@@ -699,20 +710,25 @@ async function _classDeclarationHandler(scopeInstanceName, node, requiredModuleD
   // Filter out all field_decalaration first to collect class level variables
   const body = _oneChildrenOfType(node, 'class_body') || _oneChildrenOfType(node, 'interface_body');
   const classLevelVariables = {};
+
+  const innerClasses = _allChildrenOfType(body, 'class_declaration');
+  for (const child of innerClasses) {
+    await _walkAndBuildDependency(fullName, child, requiredModuleDependencies, dependency, 0, classLevelVariables);
+  }
+
   const classFields = _allChildrenOfType(body, 'field_declaration');
   for (const child of classFields) {
-    await _walkAndBuildDependency('', child, requiredModuleDependencies, dependency, 0, classLevelVariables);
+    await _walkAndBuildDependency(fullName, child, requiredModuleDependencies, dependency, 0, classLevelVariables);
   }
 
   // Collect all method signatures first for later use
-  const fullyQualifiedName = `${requiredModuleDependencies.$package}.${className}`;
   const methodDependencies = [];
   const classMethods = _allChildrenOfType(body, 'method_declaration');
   for (const child of classMethods) {
     let methodSignature = await _getInvokeMethodSignatureThroughLSP(child);
     if (!methodSignature) {
       methodSignature = await _getInvokeMethodManually(className, child, requiredModuleDependencies, instanceAndfunctionDependencies, level, classLevelVariables);
-      methodSignature = `${fullyQualifiedName}.${methodSignature}`;
+      methodSignature = `${fullName}.${methodSignature}`;
     }
 
     const modifiers = _oneChildrenOfType(child, 'modifiers');
@@ -722,7 +738,7 @@ async function _classDeclarationHandler(scopeInstanceName, node, requiredModuleD
     } else {
       returnTypeNode = child.children[0];
     }
-    const returnType = _getTypeName(returnTypeNode, requiredModuleDependencies);
+    const returnType = _typeNodeHandler(returnTypeNode, requiredModuleDependencies);
     const methodDependency = _captureDependency(dependency, methodSignature);
     methodDependency.$sourceCode = child.text;
     methodDependency.$type = 'method';
@@ -783,7 +799,7 @@ async function _classDeclarationHandler(scopeInstanceName, node, requiredModuleD
       for (const arg of argumentsNode.children) {
         if (arg.type === 'formal_parameter') {
           // TODO: Handle modifiers
-          const argType = _getTypeName(arg, requiredModuleDependencies);
+          const argType = _typeNodeHandler(arg, requiredModuleDependencies);
           cloned[_oneChildrenOfType(arg, 'identifier').text] = argType;
         }
       }
@@ -793,14 +809,18 @@ async function _classDeclarationHandler(scopeInstanceName, node, requiredModuleD
   }
 
   for (const child of body.children) {
-    if (OPERATORS_OR_KEYWORDS.indexOf(child.type) !== -1 || child.type === 'field_declaration' || child.type === 'method_declaration') {
+    if (OPERATORS_OR_KEYWORDS.indexOf(child.type) !== -1 || ['class_declaration', 'field_declaration', 'method_declaration'].includes(child.type)) {
       // Skipping those `return`, `await`, ;, operators (e.g. >), etc
       continue;
     }
     const cloned = _.cloneDeep(classLevelVariables);
 
-    await _walkAndBuildDependency('', child, requiredModuleDependencies, dependency, 0, cloned);
+    // Static block / constructor
+    await _walkAndBuildDependency(fullName, child, requiredModuleDependencies, dependency, 0, cloned);
   }
+
+  // Pass class level variables to external passed in localScopeVariables in case this is inner class
+  _.merge(localScopeVariables, classLevelVariables);
 
   return className;
 }
@@ -842,7 +862,7 @@ function _importHandler(scopeInstanceName, node, requiredModuleDependencies, ins
 function _catchClauseHandler(scopeInstanceName, node, requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables) {
   const parameter = _oneChildrenOfType(node, 'catch_formal_parameter');
   const identifier = parameter.children[1].text;
-  localScopeVariables[identifier] = _getTypeName(parameter, requiredModuleDependencies);
+  localScopeVariables[identifier] = _typeNodeHandler(parameter, requiredModuleDependencies);
   _walkAndBuildDependency(scopeInstanceName, node.children[node.children.length - 1], requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables);
   return identifier;
 }
@@ -955,13 +975,88 @@ function _isCommonDependency(dependencyName) {
   })
 }
 
-function _collectInnerDependencies(node, requiredModuleDependencies, instanceAndfunctionDependencies, level = 0, className = '', parentName = '') {
+function _getClassFullName(name, requiredModuleDependencies, $package) {
+  const fullName = _getRequiredModuleDependency(name, requiredModuleDependencies);
+  if (fullName === name) {
+    return `${$package}.${name}`;
+  }
+  return fullName;
+}
+
+function _convertDependencyStructure(inspectedDependency, requiredModuleDependencies, parentDependencyName, className, parentClassName) {
+  let dependencyName = inspectedDependency.$name;
+  if (_isCommonDependency(dependencyName)) {
+    return;
+  }
+
+  let module;
+  if (dependencyName.indexOf('.') === -1) {
+    dependencyName = `${parentDependencyName}.${dependencyName}`;
+  }
+
+  if (dependencyName.startsWith('super.')) {
+    dependencyName = dependencyName.replace('super.', `${parentClassName}.`);
+    module = parentClassName;
+  }
+
+  if (dependencyName.startsWith('this.')) {
+    dependencyName = dependencyName.replace('this.', `${className}.`);
+  }
+  if (inspectedDependency.$type === 'constructor' && dependencyName.indexOf('(') > 0) {
+    module = dependencyName.substring(0, dependencyName.indexOf('('));
+  }
+
+  if (!module) {
+    // Ensure it's not something like `a().b()`
+    const endIndex = dependencyName.indexOf('(') === -1 ? undefined : dependencyName.indexOf('(');
+    module = dependencyName.substring(0, dependencyName.lastIndexOf('.', endIndex));
+  }
+
+  const dependency = {
+    instanceName: dependencyName,
+    usage: inspectedDependency.$usage,
+    sourceCode: inspectedDependency.$sourceCode,
+    visibility: inspectedDependency.$visibility,
+    type: _nodeType(inspectedDependency),
+    module,
+    dependencies: []
+  };
+
+  if (inspectedDependency.$type === 'requestPath') {
+    dependency.visibility = 'public';
+    dependency.type = 'API';
+  }
+
+  if (inspectedDependency.$super) {
+    dependency.dependencies.push({
+      instanceName: _getClassFullName(inspectedDependency.$super.name, requiredModuleDependencies, inspectedDependency.$package),
+      type: 'class'
+    });
+  }
+
+  if (inspectedDependency.$interfaces) {
+    for (const interfaceClass of inspectedDependency.$interfaces) {
+      dependency.dependencies.push({
+        instanceName: _getClassFullName(interfaceClass.name, requiredModuleDependencies, inspectedDependency.$package),
+        type: 'interface'
+      });
+    }
+  }
+
+  return dependency;
+}
+
+function _collectInnerDependencies(node, requiredModuleDependencies, instanceAndfunctionDependencies, className = '', parentClassName, parentDependencyName = '') {
   // Special properties like $name, $type, $public are not dependencies
   if (!node) {
     return [];
   }
 
-  const dependencies = [];
+  const dependency = _convertDependencyStructure(node, requiredModuleDependencies, parentDependencyName, className, parentClassName);
+  if (!dependency) {
+    return [];
+  }
+
   const dependencyNames = _getDependencyNames(node);
 
   for (let dependencyName of dependencyNames) {
@@ -969,66 +1064,11 @@ function _collectInnerDependencies(node, requiredModuleDependencies, instanceAnd
       continue;
     }
 
-    const inspectedDependency = node[dependencyName];
-    const usage = inspectedDependency.$usage;
-    if (node.$type === 'class' && dependencyName.indexOf('.') === -1) {
-      dependencyName = `${node.$package}.${node.$name}.${dependencyName}`;
-    }
-
-    if (dependencyName.startsWith('super.')) {
-      dependencyName = dependencyName.replace('super.', `${parentName}.`);
-    }
-
-    if (dependencyName.startsWith('this.')) {
-      dependencyName = dependencyName.replace('this.', `${className}.`);
-    }
-    let module;
-    if (dependencyName.indexOf('.') > 0 && dependencyName.indexOf('.') > dependencyName.indexOf('(')) {
-      // Ensure it's not something like `a().b()`
-      const endIndex = dependencyName.indexOf('(') === -1 ? undefined : dependencyName.indexOf('(');
-      module = dependencyName.substring(0, dependencyName.lastIndexOf('.', endIndex));
-    } else {
-      module = className;
-    }
-
-    const dependency = {
-      instanceName: dependencyName,
-      usage,
-      sourceCode: inspectedDependency.$sourceCode,
-      visibility: inspectedDependency.$visibility,
-      type: _nodeType(inspectedDependency),
-      module,
-      dependencies: []
-    };
-
-    if (inspectedDependency.$type === 'requestPath') {
-      dependency.visibility = 'public';
-      dependency.type = 'API';
-    }
-
-    if (inspectedDependency.$super) {
-      dependencies.push({
-        instanceName: _getRequiredModuleDependency(inspectedDependency.$super.name, requiredModuleDependencies),
-        type: 'class'
-      });
-    }
-
-    if (inspectedDependency.$interfaces) {
-      for (const interfaceClass of inspectedDependency.$interfaces) {
-        dependencies.push({
-          instanceName: _getRequiredModuleDependency(interfaceClass.name, requiredModuleDependencies),
-          type: 'interface'
-        });
-      }
-    }
-
-    const innerDependencies = _collectInnerDependencies(inspectedDependency, requiredModuleDependencies, instanceAndfunctionDependencies, level + 1, className, parentName);
-    dependency.dependencies.push(...innerDependencies);
-
-    dependencies.push(dependency);
+    const childDependencies = _collectInnerDependencies(node[dependencyName], requiredModuleDependencies, instanceAndfunctionDependencies, className, parentClassName, dependency.instanceName);
+    dependency.dependencies.push(...childDependencies);
   }
 
-  return dependencies;
+  return [dependency];
 }
 
 class AstParser {
@@ -1085,6 +1125,7 @@ class AstParser {
 
       await _walkAndBuildDependency('', rootNode, requiredModuleDependencies, instanceAndfunctionDependencies);
       fs.writeFileSync('./ast.json', JSON.stringify(instanceAndfunctionDependencies, null, 2));
+      // instanceAndfunctionDependencies = JSON.parse(fs.readFileSync('./ast.json'));
 
       // Massage data into hierarchical structure
       const $package = instanceAndfunctionDependencies.$package;
@@ -1092,10 +1133,11 @@ class AstParser {
 
       const massagedResult = { dependencies: [], $package, $type: '$file', $name: sourceFile };
       _.each(instanceAndfunctionDependencies, (value, key) => {
+        // If there are multiple classes in a file, then the key is the class name
         value.$package = $package;
         const className = `${$package}.${key}`;
-        const parentName = value.$supser ? `${$package}.${value.$super.name}` : '';
-        massagedResult.dependencies.push(..._collectInnerDependencies(value, requiredModuleDependencies, instanceAndfunctionDependencies, 0, className, parentName));
+        const parentClassName = value.$super ? `${value.$package}.${value.$super.name}` : '';
+        massagedResult.dependencies.push(..._collectInnerDependencies(value, requiredModuleDependencies, instanceAndfunctionDependencies, className, parentClassName, $package));
       });
 
       fs.writeFileSync('./dependencies.json', JSON.stringify(massagedResult, null, 2));
