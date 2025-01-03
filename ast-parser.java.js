@@ -281,6 +281,8 @@ function _getLocalScopeVariableType(localScopeVariables, node) {
   return node.text;
 }
 
+const LOGICAL_OPERATORS = ['&&', '||', '!', '==', '!=', '>', '>=', '<', '<='];
+
 async function _getReturnTypeWithObjectCreation(scopeInstanceName, node, requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables) {
   const args = _oneChildrenOfType(node, 'argument_list');
   const objCreationNode = _oneChildrenOfType(node, 'object_creation_expression');
@@ -318,6 +320,9 @@ async function _getInvokeMethodManually(scopeInstanceName, node, requiredModuleD
     } else if (child.type === 'identifier') {
       const dependencyName = _getRequiredModuleDependency(_getLocalScopeVariableType(localScopeVariables, child), requiredModuleDependencies);
       dependentIdentifer.push(dependencyName);
+    } else if (child.type === 'array_access') {
+      const arrayType = _getLocalScopeVariableType(localScopeVariables, child.children[0]);
+      dependentIdentifer.push(arrayType.replace('[]', ''));
     } else if (child.type === 'argument_list') {
       // Try to deduce argument types
       // If it's local variable, then get the type from localScopeVariables
@@ -349,6 +354,12 @@ async function _getInvokeMethodManually(scopeInstanceName, node, requiredModuleD
           }
         } else if (arg.type === 'true' || arg.type === 'false') {
           dependentIdentifer.push('Boolean');
+        } else if (arg.type === 'binary_expression') {
+          if (LOGICAL_OPERATORS.includes(arg.children[1].text)) {
+            dependentIdentifer.push('Boolean');
+          } else {
+            dependentIdentifer.push('Integer');
+          }
         } else if (arg.type === 'method_invocation') {
           const returnType = await _getInvokeMethodReturnType(arg, true);
           if (returnType) {
@@ -392,6 +403,9 @@ async function _getInvokeMethodManually(scopeInstanceName, node, requiredModuleD
     } else if (child.type === 'object_creation_expression') {
       const argType = await _getReturnTypeWithObjectCreation(scopeInstanceName, node, requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables);
       dependentIdentifer.push(_getShortName(argType));
+    } else if (child.type === 'string_literal') {
+      // TODO: Need to capture the constant as dependency?
+      dependentIdentifer.push('String');
     } else {
       // (, ) or . are directly added
       dependentIdentifer.push(child.text);
@@ -537,12 +551,14 @@ function _identifierHandler(scopeInstanceName, node, requiredModuleDependencies,
   return node.text;
 }
 
-const OPERATORS_OR_KEYWORDS = ['{', '}', ',', ';', '@', 'extends', 'implements', 'return', 'await', 'comment', 'class', 'if', 'else', 'try', 'catch', 'break', 'continue', '\'', '"', '+', '-', '?', ':', '(', ')', '>', '<', '>=', '<=', '==', '===', '!=', '!==', '&&', '||', '!',];
+const OPERATORS_OR_KEYWORDS = LOGICAL_OPERATORS.concat(
+  ['{', '}', ',', ';', '@', 'extends', 'implements', 'return', 'await', 'comment', 'class', 'if', 'else', 'try', 'catch', 'throw', 'break', 'continue', 'true', 'false', '\'', '"', '+', '-', '?', ':', '(', ')', '=', '*', '/', '->', '+=', '-=', '*=', '/=', 'instanceof', 'new', 'this', 'super', 'null', 'void', 'static', 'final', 'abstract', 'synchronized']
+);
 
 async function _forStatementHandler(scopeInstanceName, node, requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables) {
   const variableDeclaration = _oneChildrenOfType(node, 'local_variable_declaration');
   if (variableDeclaration) {
-    const typeIdentifier = _typeNodeHandler(scopeInstanceName, variableDeclaration.children[0], requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables);
+    const typeIdentifier = _typeNodeHandler(variableDeclaration.children[0], requiredModuleDependencies);
     const variableDeclarators = _allChildrenOfType(variableDeclaration, 'variable_declarator');
 
     for (const declarator of variableDeclarators) {
@@ -709,8 +725,17 @@ async function _classDeclarationHandler(scopeInstanceName, node, requiredModuleD
     }
   }
 
+  if (node.type === 'enum_declaration') {
+    const constantFields = _allChildrenOfType(_oneChildrenOfType(node, 'enum_body'), 'enum_constant');
+    for (const child of constantFields) {
+      const fieldName = _oneChildrenOfType(child, 'identifier').text;
+      _captureDependency(dependency, `${fullName}.${fieldName}`);
+    }
+  }
+
   // Filter out all field_decalaration first to collect class level variables
-  const body = _oneChildrenOfType(node, 'class_body') || _oneChildrenOfType(node, 'interface_body');
+  const body = _oneChildrenOfType(node, 'class_body') || _oneChildrenOfType(node, 'interface_body') ||
+    _oneDescendantOfType(node, 'enum_body_declarations');
   const classLevelVariables = {};
 
   const innerClasses = _allChildrenOfType(body, 'class_declaration');
@@ -908,6 +933,7 @@ const NODE_TYPE_HANDLERS = {
   array_access: _literalHandler,
   class_declaration: _classDeclarationHandler,
   interface_declaration: _classDeclarationHandler,
+  enum_declaration: _classDeclarationHandler,
   import_declaration: _importHandler,
   field_declaration: _fieldDeclarationHandler,
   local_variable_declaration: _localVariableDeclarationHandler,
@@ -1085,8 +1111,9 @@ class AstParser {
     return this.parser.parse(code);
   }
 
-  async getFunctionDependencies(functionCode) {
-    
+  async initializeLSP() {
+    await initializeServer(`file:///${this.rootDir}`);
+    this.initialized = true;
   }
 
 // moduleDependencyMap format:
@@ -1113,11 +1140,6 @@ class AstParser {
   // }
   async getDependencies(sourceFile) {
     try {
-      if (!this.initialized) {
-        await initializeServer(`file:///${this.rootDir}`);
-        this.initialized = true;
-      }
-
       filePath = `${this.rootDir}/${sourceFile}`
       const code = fs.readFileSync(filePath, 'utf8');
       const tree = this.parser.parse(code);

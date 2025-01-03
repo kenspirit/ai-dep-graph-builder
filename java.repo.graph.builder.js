@@ -60,14 +60,6 @@ async function buildSystemModuleVertices() {
 
   for (const result of javaClass) {
     const { filePath } = result;
-    // const systemModule = {
-    //   category: 'systemModule',
-    //   microService: microService,
-    //   name,
-    //   type: 'Class',
-    //   description: loadedModule.description || name,
-    //   dependencies: []
-    // };
 
     console.log(`========== Dependencies built for ${filePath} ===========\n`);
     try {
@@ -91,12 +83,12 @@ async function buildSystemModuleVertices() {
       console.error(`Error while building dependencies for ${filePath}`, e);
       continue;
     }
-
-    // await persistVertex(systemModule);
   }
 }
 
 async function buildGraph() {
+  await astParser.initializeLSP();
+
   await persistVertex({
     name: microService,
     category: 'microService',
