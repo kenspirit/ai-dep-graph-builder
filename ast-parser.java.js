@@ -1148,7 +1148,7 @@ class AstParser {
       let instanceAndfunctionDependencies = {};
 
       await _walkAndBuildDependency('', rootNode, requiredModuleDependencies, instanceAndfunctionDependencies);
-      fs.writeFileSync('./ast.json', JSON.stringify(instanceAndfunctionDependencies, null, 2));
+      fs.writeFileSync('./ast.java.json', JSON.stringify(instanceAndfunctionDependencies, null, 2));
       // instanceAndfunctionDependencies = JSON.parse(fs.readFileSync('./ast.json'));
 
       // Massage data into hierarchical structure
@@ -1164,7 +1164,7 @@ class AstParser {
         massagedResult.dependencies.push(..._collectInnerDependencies(value, requiredModuleDependencies, instanceAndfunctionDependencies, className, parentClassName, $package));
       });
 
-      fs.writeFileSync('./dependencies.json', JSON.stringify(massagedResult, null, 2));
+      fs.writeFileSync('./dependencies.java.json', JSON.stringify(massagedResult, null, 2));
       return { requiredModuleDependencies, instanceAndfunctionDependencies: massagedResult };
     } catch (error) {
       console.error(`Error parsing source: \n${sourceFile}`, error);
