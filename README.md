@@ -49,6 +49,14 @@ Add `sample.config.js` like below:
       password: ''
     }
   },
+  defaultAiProvider: 'MOONSHOT',
+  // filesMatchingPatterns: /.*\.java$/
+  filesMatchingPatterns: [
+    /.*\.(vue|js)$/,
+    /^(?!.*\.(test|spec)\.js$)/,
+    /^(?!.*\.json$).*$/,
+    /^(?!.*(node_modules|cypress)).*$/
+  ],
   aiProviders: {
     MOONSHOT: {
       apiKey: 'key-1'

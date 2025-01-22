@@ -293,13 +293,7 @@ const CONVERT_ADAPTOR = {
 }
 
 async function buildSystemModuleVerticesFromNonRouteModules() {
-  const fileMatchingPatterns = [
-    /.*\.(vue|js)$/,
-    /^(?!.*\.(routes|test|spec)\.js$)/,
-    /^(?!.*\.json$).*$/,
-    /^(?!.*(config|asset_models|rolelist_models|schemas|node_modules|cypress)).*$/
-  ]
-  const nonRouteModules = await loadModules(rootDir, fileMatchingPatterns, false);
+  const nonRouteModules = await loadModules(rootDir, config.filesMatchingPatterns, false);
 
   for (const result of nonRouteModules) {
     const { filePath, loadedModule, rawContent } = result;

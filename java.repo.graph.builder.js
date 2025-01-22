@@ -61,10 +61,7 @@ function _convertInstanceAndFunctionDependencies(fileName, moduleDependencyMap, 
 }
 
 async function buildSystemModuleVertices() {
-  const fileMatchingPatterns = [
-    /.*\.java$/
-  ]
-  const javaClass = await loadModules(rootDir, fileMatchingPatterns, false);
+  const javaClass = await loadModules(rootDir, config.filesMatchingPatterns, false);
 
   for (const result of javaClass) {
     const { filePath } = result;
