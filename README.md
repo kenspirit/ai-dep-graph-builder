@@ -21,8 +21,8 @@ This tool includes below major components:
 - AI adaptors
   - Pre-defined `AiProvider` under directory `ai-providers`.
 
-- Graph data generation script for the sample project.
-  - Script `repo.graph.builder.js` which builds code dependency graph for the sample project as a demonstration for API usage.
+- Graph data generation sample script.
+  - Sample Script `js.repo.graph.builder.js` and `java.repo.graph.builder.js` which build code dependency graph.
 
 - Sample project providing restful API for graph component manipulation and visualization UI
   - Under directory `sample-project`.
@@ -33,11 +33,9 @@ This tool includes below major components:
 
 ## Usage
 
-### JavaScript project
+### Configuration
 
-Invokes API provided by `index.js` like `repo.graph.builder.js` to contruct the code dependency and store to your graph database.
-
-Sample configuration should be provided as:
+Add `sample.config.js` like below:
 
 ```javascript
 {
@@ -62,29 +60,27 @@ Sample configuration should be provided as:
 }
 ```
 
-### Non-JavaScript project
+### Environment Variables
 
-Invokes RESTful API through starting up the web service under directory `sample-project` through steps:  
+Some environment variables should be set before executing below script:
+1. `PROJECT_ROOT`: Absolute path of the project to be analyzed.
+2. `SERVICE_NAME`: Micro-Service Name of the project
+3. `AI_ENABLED`: If set to `false`, it will not try to send the function to AI provider to get description based on function implementation.
+
+### Project Code Dependency Extraction
+
+For JavaScript project, invokes command `node js.repo.graph.builder.js`.  
+For JAVA project, invokes command `node java.repo.graph.builder.js`.  
+  - `java.repo.graph.builder` utilizes [LSP](https://microsoft.github.io/language-server-protocol/) besides AST.  You can start one using [Eclipse JDT](https://github.com/eclipse-jdtls/eclipse.jdt.ls).
+
+These command extracts the code dependency on the project specified in path `PROJECT_ROOT` and store to your graph database.
+
+### Code Dependency Retrieval from Graph DB
+
+After the code dependency stored in DB, sample web server of RESTful API can be started for dependency retrieval.  It's under directory `sample-project` and can be started as:  
 1. Run `npm install`
 2. Run `npm build`
 3. Run `node server.js`
-
-Sample configuration should be provided as below.  `aiProviders` is not needed as it does not contain any AI related feature:
-
-```javascript
-{
-  graph: {
-    type: 'ARCADEDB',
-    connectionOptions: {
-      host: '127.0.0.1',
-      port: 2480,
-      database: '',
-      username: '',
-      password: ''
-    }
-  }
-}
-```
 
 ## Code Dependency Graph Design Explained
 
@@ -199,8 +195,7 @@ To build a code dependency graph for a project, it should probably go through be
 - Create `Business Module` type Vertices.  These vertices should normally be prepared by business analysis and they probabaly cannot be done through codebase scan.
 - Create `Micro-Service` type Vertices.  These vertices are normally 1-1 mapping to the code repositories.
 - Create `System Module` and `Component` type Vertices.  These should be done automatically by code scan.
-  - Take `js.repo.graph.builder` or `java.repo.graph.builder` as a reference.
-  - `java.repo.graph.builder` utilizes [LSP](https://microsoft.github.io/language-server-protocol/) besides AST.  You can start one using [Eclipse JDT](https://github.com/eclipse-jdtls/eclipse.jdt.ls).
+  - Execute `js.repo.graph.builder` or `java.repo.graph.builder`.
 
 
 Sample Vertices:

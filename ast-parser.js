@@ -307,7 +307,7 @@ function _forInStatementHandler(scopeInstanceName, node, requiredModuleDependenc
   _walkAndBuildDependency(scopeInstanceName, node.children[node.children.length - 1], requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables);
 }
 
-const OPERATORS_OR_KEYWORDS = ['{', '}', ',', ';', '@', 'export', 'return', 'await', 'comment', 'if', 'else', 'delete', 'const', 'for', 'of', 'static', 'yield', 'try', 'throw', '=', '\'', '"', '+', '-', '?', ':', '[', ']', '(', ')', '>', '<', '>=', '<=', '==', '===', '!=', '!==', '&&', '||', '!', '++', '--'];
+const OPERATORS_OR_KEYWORDS = ['{', '}', ',', ';', '@', 'export', 'return', 'await', 'comment', 'if', 'else', 'delete', 'const', 'for', 'of', 'while', 'instanceof', 'static', 'yield', 'try', 'throw', 'continue_statement', 'break_statement', 'empty_statement', 'typeof', 'undefined', 'null', 'true', 'false', 'number', '...', '=', '\'', '"', '+', '-', '*', '/', '?', ':', '[', ']', '(', ')', '>', '<', '>=', '<=', '==', '===', '!=', '!==', '&&', '||', '!', '++', '--'];
 
 function _moduleExportHandler(scopeInstanceName, node, requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables) {
   const children = node.children;
@@ -561,6 +561,8 @@ function _arrayHandler(scopeInstanceName, node, requiredModuleDependencies, inst
       dependency.$type = 'string';
       dependency.$value = child.text;
       dependency.$index = index;
+    } else if (child.type === 'identifier' && !localScopeVariables.includes(child.text)) {
+      _captureDependency(instanceAndfunctionDependencies, child.text);
     } else {
       _walkAndBuildDependency(scopeInstanceName, child, requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables);
     }
@@ -627,7 +629,6 @@ function _objectPatternHandler(scopeInstanceName, node, requiredModuleDependenci
         identifier = child.text;
 
         const dependency = _captureDependency(instanceAndfunctionDependencies, identifier);
-        dependency.$module = scopeInstanceName || dependency.$module;
         dependency.$usage = '$property';
       } else if (child.type === 'pair_pattern') {
         // On the left side of object pattern, such as:
@@ -639,7 +640,6 @@ function _objectPatternHandler(scopeInstanceName, node, requiredModuleDependenci
         }
 
         const dependency = _captureDependency(instanceAndfunctionDependencies, identifier);
-        dependency.$module = scopeInstanceName || dependency.$module;
         dependency.$usage = '$property';
 
         if (child.children[0].type !== identifier) {
@@ -651,7 +651,7 @@ function _objectPatternHandler(scopeInstanceName, node, requiredModuleDependenci
       } else if (child.type === 'pair') {
         // On the right side of statement as object:
         // { xxx: ... } }
-        identifier = _oneChildrenOfType(child, 'property_identifier') || _oneChildrenOfType(child, 'private_property_identifier');
+        identifier = _oneChildrenOfType(child, 'property_identifier') || _oneChildrenOfType(child, 'private_property_identifier') || child.children[0];
         identifier = identifier.text;
         if (instanceAndfunctionDependencies.$type === 'array') {
           identifier = `[${instanceAndfunctionDependencies.$index}]${identifier}`;
@@ -709,6 +709,8 @@ const NODE_TYPE_HANDLERS = {
   while_statement: _generalExpressionHandler,
   try_statement: _generalExpressionHandler,
   catch_clause: _catchClauseHandler,
+  'finally': _generalExpressionHandler,
+  finally_clause: _generalExpressionHandler,
   throw_statement: _generalExpressionHandler,
   spread_element: _generalExpressionHandler,
   parenthesized_expression: _generalExpressionHandler,
@@ -716,6 +718,7 @@ const NODE_TYPE_HANDLERS = {
   pair: _objectPairHandler,
   export_statement: _exportStatementHandler,
   decorator: _generalExpressionHandler,
+  class: _classDeclarationHandler,
   class_declaration: _classDeclarationHandler,
   method_definition: _functionNodeHander,
   generator_function_declaration: _functionNodeHander,
@@ -724,6 +727,7 @@ const NODE_TYPE_HANDLERS = {
   assignment_expression: _assignmentExpressionHandler,
   subscript_expression: _generalExpressionHandler,
   yield_expression: _generalExpressionHandler,
+  regex: _identifierHandler,
   this: _identifierHandler,
   super: _identifierHandler,
   string: _identifierHandler, // template_string and string literal is captured as identifier because it's sometimes used as important dependency, such as URL path
@@ -877,10 +881,10 @@ function _convertDependencyStructure(node, requiredModuleDependencies, instanceA
 
     if (usage === '$property') {
       dependency.instanceName = dependency.$sourceProperty || dependency.instanceName;
-    } else if (dependencyName === topLevelName) {
+    } else if (externalModuleDependency.isDefault || externalModuleDependency.isNamespace) {
       // Directly reference to module.  Should use external module name as instanceName instead of alias in file
       dependency.instanceName = externalModuleDependency.source;
-    } else if (!externalModuleDependency.isDefault && !externalModuleDependency.isNamespace) {
+    // } else if (!externalModuleDependency.isDefault && !externalModuleDependency.isNamespace) {
       // External module is not default export, then it's a field of the module, keep it as it is
       // dependency.instanceName = `${externalModuleDependency.source}.${dependencyName}`;
     } else {

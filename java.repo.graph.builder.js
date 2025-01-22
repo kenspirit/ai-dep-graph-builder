@@ -5,13 +5,18 @@ import { AstParser } from './ast-parser.java.js';
 import BigModel from './ai-providers/bigmodel.js';
 import config from './sample.config.js';
 
-registerAiProvider('BIGMODEL', BigModel);
+let aiProvider;
 
-const aiProvider = new AiProvider(config.defaultAiProvider, config.aiProviders[config.defaultAiProvider]);
+if (process.env.AI_ENABLED !== 'false') {
+  registerAiProvider('BIGMODEL', BigModel);
+
+  aiProvider = new AiProvider(config.defaultAiProvider, config.aiProviders[config.defaultAiProvider]);
+}
+
 const builder = new GraphBuilder(config.graph.type, config.graph.connectionOptions);
 
-const rootDir = 'project-root-path'; // Which should probably the directory of pom.xml
-const microService = 'sample-service';
+const rootDir = process.env.PROJECT_ROOT || 'project-root-path'; // Which should probably the directory of pom.xml
+const microService = process.env.SERVICE_NAME || 'sample-service';
 
 const astParser = new AstParser(rootDir.replace(/\\/g, '/'));
 
@@ -20,6 +25,9 @@ async function persistVertex(vertex) {
 }
 
 async function _getFunctionDescriptionThroughAI(functionSourceCode) {
+  if (process.env.AI_ENABLED === 'false') {
+    return 'AI NOT ENABLED';
+  }
   const response = await aiProvider.getFunctionDescription(functionSourceCode);
   return response.description;
 }
@@ -87,6 +95,7 @@ async function buildSystemModuleVertices() {
 }
 
 async function buildGraph() {
+  await builder.initGraph();
   await astParser.initializeLSP();
 
   await persistVertex({

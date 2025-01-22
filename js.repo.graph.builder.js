@@ -6,20 +6,28 @@ import { AiProvider, GraphBuilder, AstParser, registerAiProvider } from './index
 import BigModel from './ai-providers/bigmodel.js';
 import config from './sample.config.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+let aiProvider;
 
-registerAiProvider('BIGMODEL', BigModel);
+if (process.env.AI_ENABLED !== 'false') {
+  registerAiProvider('BIGMODEL', BigModel);
 
-const aiProvider = new AiProvider(config.defaultAiProvider, config.aiProviders[config.defaultAiProvider]);
+  aiProvider = new AiProvider(config.defaultAiProvider, config.aiProviders[config.defaultAiProvider]);
+}
+
 const builder = new GraphBuilder(config.graph.type, config.graph.connectionOptions);
 const astParser = new AstParser();
 
-const rootDir = path.join(__dirname, 'sample-project/server');
-const microService = 'dep-graph-builder';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const rootDir = process.env.PROJECT_ROOT || path.join(__dirname, 'sample-project/server');
+const microService = process.env.SERVICE_NAME || 'dep-graph-builder';
 
 async function persistVertex(vertex) {
-  await builder.createVertex(vertex);
+  try {
+    await builder.createVertex(vertex);
+  } catch (e) {
+    console.error(`Failed to persist vertex: ${vertex.name}`, e);
+  }
 }
 
 function _resolveRelativeModulePath(filePath, relativeModulePath) {
@@ -166,11 +174,32 @@ async function buildSystemModuleVerticesFromRouteModules() {
 
 
 async function _getFunctionDescriptionThroughAI(functionSourceCode) {
+  if (process.env.AI_ENABLED === 'false') {
+    return 'AI NOT ENABLED';
+  }
   const response = await aiProvider.getFunctionDescription(functionSourceCode);
   return response.description;
 }
 
 const NATIVE_MODULES = ['JSON', 'Set', 'Array', 'Map', 'console', 'Error', 'Buffer', 'Promise', 'Uint8Array', 'Date', 'process', 'require'];
+
+function _setSystemModule(dependency, systemModuleName) {
+  if (dependency.systemModule === '$file') {
+    dependency.systemModule = systemModuleName;
+  }
+  if (dependency.systemModule.startsWith('@/')) {
+    dependency.systemModule = dependency.systemModule.replace('@/', './src/');
+  }
+  if (dependency.systemModule.startsWith('.')) {
+    // Resolve relative path
+    const { dependencyName } = _resolveRelativeModulePath(`./${systemModuleName}`, dependency.systemModule);
+    dependency.systemModule = dependencyName;
+  }
+  if (dependency.systemModule === 'this') {
+    // Follows its parent system module
+    delete dependency.systemModule;
+  };
+}
 
 function _convertInstanceAndFunctionDependencies(systemModuleName, moduleDependencyMap, dependencies = []) {
   const result = dependencies.map(dependency => {
@@ -180,22 +209,14 @@ function _convertInstanceAndFunctionDependencies(systemModuleName, moduleDepende
       public: dependency.public,
       category: 'component',
       name: dependency.instanceName,
-      systemModule: dependency.module === '$file' ? systemModuleName : (dependency.module || 'this'),
+      systemModule: dependency.module,
       microService: microService,
       type: isFunction ? 'Function' : 'Field',
       sourceCode: isFunction ? dependency.sourceCode : dependency.instanceName,
       dependencies: _convertInstanceAndFunctionDependencies(systemModuleName, moduleDependencyMap, dependency.dependencies)
     };
 
-    if (converted.systemModule.startsWith('.')) {
-      // Resolve relative path
-      const { dependencyName } = _resolveRelativeModulePath(`./${systemModuleName}`, converted.systemModule);
-      converted.systemModule = dependencyName;
-    }
-    if (converted.systemModule === 'this') {
-      // Follows its parent system module
-      delete converted.systemModule;
-    }
+    _setSystemModule(converted, systemModuleName);
 
     return converted;
   });
@@ -203,17 +224,87 @@ function _convertInstanceAndFunctionDependencies(systemModuleName, moduleDepende
   return result.filter(dependency => !NATIVE_MODULES.includes(dependency.systemModule));
 }
 
+const VUE_PROP_TYPES = {
+  'props': 'Property',
+  'emits': 'EmitEvent',
+  'components': 'Component',
+  'mixins': 'Component',
+  'data': 'Data',
+  'watch': 'Watch',
+}
+
+function _convertVueDependencies(systemModuleName, moduleDependencyMap, dependencies = [], level = 0) {
+  if (dependencies.length === 1 && dependencies[0].instanceName === 'default') {
+    // Option definition style
+    return _convertVueDependencies(systemModuleName, moduleDependencyMap, dependencies[0].dependencies, level);
+  }
+
+  return dependencies.map(dependency => {
+    // Type of the children should be set as top level component name
+    // Each top level component should be handled differently
+    // props, data, emits, components, mixins
+    // setup, methods, computed, watch, created should be similar
+    const isFunction = dependency.type === 'method';
+
+    const converted = {
+      public: typeof dependency.public !== 'undefined' ? dependency.public : (level === 0),
+      category: 'component',
+      name: dependency.instanceName,
+      systemModule: level === 0 ? systemModuleName : dependency.module,
+      microService: microService,
+      type: isFunction ? 'Function' : 'Field',
+      sourceCode: dependency.sourceCode || dependency.instanceName
+    };
+
+    _setSystemModule(converted, systemModuleName);
+
+    if (level === 0) {
+      // Top level component special handling
+      converted.dependencies = dependency.dependencies.map(prop => {
+        const innerDependency = {
+          public: true,
+          category: 'component',
+          name: prop.instanceName,
+          systemModule: level === 0 ? systemModuleName : dependency.module,
+          microService: microService,
+          type: VUE_PROP_TYPES[converted.name] || (prop.type === 'method' ? 'Function' : 'Field'),
+          description: prop.instanceName,
+          sourceCode: dependency.sourceCode || dependency.instanceName
+        };
+
+        _setSystemModule(innerDependency, systemModuleName);
+
+        innerDependency.dependencies = _convertVueDependencies(systemModuleName, moduleDependencyMap, prop.dependencies, level + 1);
+
+        return innerDependency;
+      });
+    } else {
+      converted.dependencies = _convertVueDependencies(systemModuleName, moduleDependencyMap, dependency.dependencies, level + 1)
+    }
+
+    return converted;
+  });
+}
+
+const CONVERT_ADAPTOR = {
+  DEFAULT: _convertInstanceAndFunctionDependencies,
+  JS: _convertInstanceAndFunctionDependencies,
+  VUE: _convertVueDependencies
+}
+
 async function buildSystemModuleVerticesFromNonRouteModules() {
   const fileMatchingPatterns = [
+    /.*\.(vue|js)$/,
     /^(?!.*\.(routes|test|spec)\.js$)/,
     /^(?!.*\.json$).*$/,
-    /^(?!.*(asset_models|rolelist_models|schemas)).*$/
+    /^(?!.*(config|asset_models|rolelist_models|schemas|node_modules|cypress)).*$/
   ]
   const nonRouteModules = await loadModules(rootDir, fileMatchingPatterns, false);
 
   for (const result of nonRouteModules) {
     const { filePath, loadedModule, rawContent } = result;
     const systemModuleName = filePath.replace(rootDir, '').replace(/\\/g, '/');
+    const suffix = filePath.split('.').pop().toUpperCase();
     // const systemModule = {
     //   category: 'systemModule',
     //   microService: microService,
@@ -222,21 +313,33 @@ async function buildSystemModuleVerticesFromNonRouteModules() {
     //   description: loadedModule.description || name,
     //   dependencies: []
     // };
+    let jsSource = rawContent;
+    const convertedAdaptor = CONVERT_ADAPTOR[suffix] || CONVERT_ADAPTOR.DEFAULT;
+
+    if (suffix === 'VUE') {
+      const scriptContentRegex = /<script[^>]*>([\s\S]*?)<\/script>/;
+      const match = rawContent.match(scriptContentRegex);
+      if (match && match[1]) {
+        jsSource = match[1].trim();
+      } else {
+        console.warn(`No script content found for ${filePath}`);
+        continue;
+      }
+    }
 
     console.log(`========== Dependencies built for ${systemModuleName} ===========\n`);
-    const { requiredModuleDependencies, instanceAndfunctionDependencies } = astParser.getDependencies(rawContent);
+    const { requiredModuleDependencies, instanceAndfunctionDependencies } = astParser.getDependencies(jsSource);
     // console.log('------ Original --------- ', JSON.stringify(instanceAndfunctionDependencies, null, 2));
 
     const moduleDependencyMap = await _getModuleDependencyMapping(filePath, requiredModuleDependencies);
 
-    const moduleDependencies = _convertInstanceAndFunctionDependencies(systemModuleName, moduleDependencyMap, instanceAndfunctionDependencies.dependencies);
+    const moduleDependencies = convertedAdaptor(systemModuleName, moduleDependencyMap, instanceAndfunctionDependencies.dependencies);
     // console.log('------ Converted --------- ', JSON.stringify(moduleDependencies, null, 2));
 
     for (const dependency of moduleDependencies) {
       // Only top level public functions are considered
       if (dependency.public && dependency.type === 'Function' && dependency.sourceCode) {
-        // dependency.description = await _getFunctionDescriptionThroughAI(dependency.sourceCode);
-        dependency.description = 'Testing';
+        dependency.description = await _getFunctionDescriptionThroughAI(dependency.sourceCode);
       } else {
         dependency.description = dependency.name;
       }
@@ -249,6 +352,7 @@ async function buildSystemModuleVerticesFromNonRouteModules() {
 }
 
 async function buildGraph() {
+  await builder.initGraph();
   await persistVertex({
     name: microService,
     category: 'microService',
@@ -256,7 +360,7 @@ async function buildGraph() {
     type: 'mono'
   });
 
-  // await buildSystemModuleVerticesFromRouteModules();
+  await buildSystemModuleVerticesFromRouteModules();
   await buildSystemModuleVerticesFromNonRouteModules();
 }
 
