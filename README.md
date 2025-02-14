@@ -30,8 +30,17 @@ This tool includes below major components:
 - Sample VSCode extension that calls RESTful API provided by Sample Project.
   - Under directory `ai-buddy`.
 
+- MCP Server which retrieves Code Dependency from configured GraphDB based on provided code component.
+  - `mcp-server.js`.
+
 
 ## Usage
+
+### ArcadeDB
+
+Start up DB through `download_start_arcadedb.bat` or `download_start_arcadedb.sh` to download and startup the ArcadeDB.  JDK 17 or above must exist.  Log file will be directed to `arcadedb.log`.
+
+After startup, can access [ArcadeDB Studio](http://192.168.56.1:2480/) with `root/playwithdata`.  Please create a database, such as named `code` for below usage.
 
 ### Configuration
 
@@ -44,9 +53,9 @@ Add `sample.config.js` like below:
     connectionOptions: {
       host: '127.0.0.1',
       port: 2480,
-      database: '',
-      username: '',
-      password: ''
+      database: 'code',
+      username: 'root',
+      password: 'playwithdata'
     }
   },
   defaultAiProvider: 'MOONSHOT',
@@ -89,6 +98,25 @@ After the code dependency stored in DB, sample web server of RESTful API can be 
 1. Run `npm install`
 2. Run `npm build`
 3. Run `node server.js`
+
+### Configure MCP Server in Cline/RooCode or other supported IDEs:
+
+```json
+{
+  "mcpServers": {
+    "code-dependency": {
+      "command": "node",
+      "args": [
+        "/path/to/mcp-server.js"
+      ],
+      "env": {
+      },
+      "disabled": false,
+      "autoApprove": []
+    }
+  }
+}
+```
 
 ## Code Dependency Graph Design Explained
 
