@@ -40,7 +40,7 @@ This tool includes below major components:
 
 Start up DB through `download_start_arcadedb.bat` or `download_start_arcadedb.sh` to download and startup the ArcadeDB.  JDK 17 or above must exist.  Log file will be directed to `arcadedb.log`.
 
-After startup, can access [ArcadeDB Studio](http://192.168.56.1:2480/) with `root/playwithdata`.  Please create a database, such as named `code` for below usage.
+After startup, can access [ArcadeDB Studio](http://localhost:2480/) with `root/playwithdata`.  Please create a database, such as named `code` for below usage.
 
 ### Configuration
 
