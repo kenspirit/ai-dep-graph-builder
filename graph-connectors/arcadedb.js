@@ -43,6 +43,7 @@ CREATE VERTEX TYPE SystemModule IF NOT EXISTS EXTENDS VertexBase;
 CREATE PROPERTY SystemModule.microService IF NOT EXISTS STRING;
 CREATE PROPERTY SystemModule.businessModules IF NOT EXISTS LIST OF STRING;
 CREATE PROPERTY SystemModule.fileName IF NOT EXISTS STRING;
+CREATE PROPERTY SystemModule.language IF NOT EXISTS STRING;
 
 CREATE VERTEX TYPE Component IF NOT EXISTS EXTENDS VertexBase;
 CREATE PROPERTY Component.visibility IF NOT EXISTS STRING;
@@ -51,6 +52,7 @@ CREATE PROPERTY Component.microService IF NOT EXISTS STRING;
 CREATE PROPERTY Component.systemModule IF NOT EXISTS STRING;
 CREATE PROPERTY Component.sourceCode IF NOT EXISTS STRING;
 CREATE PROPERTY Component.fileName IF NOT EXISTS STRING;
+CREATE PROPERTY Component.language IF NOT EXISTS STRING;
 
 CREATE INDEX IF NOT EXISTS ON Component (microService, systemModule, name) UNIQUE;
 CREATE INDEX IF NOT EXISTS ON SystemModule (microService, name) UNIQUE;`;
@@ -128,9 +130,9 @@ CREATE INDEX IF NOT EXISTS ON SystemModule (microService, name) UNIQUE;`;
       case 'microService':
         return `CREATE VERTEX MicroService SET name = :name, type = :type;`;
       case 'systemModule':
-        return `CREATE VERTEX SystemModule SET name = :name, type = :type, businessModules = :businessModules, microService = :microService, fileName = :fileName;`;
+        return `CREATE VERTEX SystemModule SET name = :name, type = :type, businessModules = :businessModules, microService = :microService, fileName = :fileName, language = :language;`;
       case 'component':
-        return `CREATE VERTEX Component SET name = :name, type = :type, microService = :microService, systemModule = :systemModule, sourceCode = :sourceCode, description = :description, public = :public, visibility = :visibility, fileName = :fileName;`;
+        return `CREATE VERTEX Component SET name = :name, type = :type, microService = :microService, systemModule = :systemModule, sourceCode = :sourceCode, description = :description, public = :public, visibility = :visibility, fileName = :fileName, language = :language;`;
     }
   }
 
@@ -143,9 +145,9 @@ CREATE INDEX IF NOT EXISTS ON SystemModule (microService, name) UNIQUE;`;
   _getVertexUpdateCommand(vertex) {
     switch (vertex.category) {
       case 'component':
-        return `UPDATE Component SET sourceCode = :sourceCode, description = :description, public = :public, visibility = :visibility, fileName = :fileName  WHERE @rid = ${vertex['@rid']};`;
+        return `UPDATE Component SET sourceCode = :sourceCode, description = :description, public = :public, visibility = :visibility, fileName = :fileName, language = :language WHERE @rid = ${vertex['@rid']};`;
       case 'systemModule':
-        return `UPDATE SystemModule SET businessModules = :businessModules, fileName = :fileName WHERE @rid = ${vertex['@rid']};`;
+        return `UPDATE SystemModule SET businessModules = :businessModules, fileName = :fileName, language = :language WHERE @rid = ${vertex['@rid']};`;
     }
   }
 
@@ -174,6 +176,11 @@ CREATE INDEX IF NOT EXISTS ON SystemModule (microService, name) UNIQUE;`;
 
   async getVerticesByIds(ids) {
     const result = await this._dbCommand('query', undefined, `SELECT FROM [${ids.join(', ')}]`);
+    return result.map(assignCategory);
+  }
+
+  async getComponentByNameAndLanguage(name, language) {
+    const result = await this._dbCommand('query', undefined, `SELECT FROM Component WHERE name = :name AND language = :language;`, { name, language });
     return result.map(assignCategory);
   }
 
@@ -266,14 +273,18 @@ CREATE INDEX IF NOT EXISTS ON SystemModule (microService, name) UNIQUE;`;
     return Array.from(uniquePaths).map(path => ({ paths: path }));
   }
 
-  async getDescendants(vertex) {
-    const query = `${this._getGremlinVertexQuery(vertex)}.emit().repeat(__.out('Uses')).path().dedup()`;
+  async getDescendants(vertex, type, hasSourceCode) {
+    const typeFilter = type ? `.has('type', '${type}')` : '';
+    const sourceCodeFilter = hasSourceCode ? `.has('sourceCode', P.neq(null)).has('sourceCode', P.neq(''))` : '';
+    const query = `${this._getGremlinVertexQuery(vertex)}.out('Uses')${typeFilter}${sourceCodeFilter}.emit().repeat(__.out('Uses')${typeFilter}${sourceCodeFilter}).path().dedup()`;
     const result = await this._dbCommand('query', undefined, query, undefined, 'gremlin');
     return this._removeSubPaths(result);
   }
 
-  async getAncestors(vertex) {
-    const query = `${this._getGremlinVertexQuery(vertex)}.emit().repeat(__.in('Uses')).path().dedup()`;
+  async getAncestors(vertex, type, hasSourceCode) {
+    const typeFilter = type ? `.has('type', '${type}')` : '';
+    const sourceCodeFilter = hasSourceCode ? `.has('sourceCode', P.neq(null)).has('sourceCode', P.neq(''))` : '';
+    const query = `${this._getGremlinVertexQuery(vertex)}.in('Uses')${typeFilter}${sourceCodeFilter}.emit().repeat(__.in('Uses')${typeFilter}${sourceCodeFilter}).path().dedup()`;
     const result = await this._dbCommand('query', undefined, query, undefined, 'gremlin');
     return this._removeSubPaths(result);
   }

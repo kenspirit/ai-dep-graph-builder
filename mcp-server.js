@@ -11,26 +11,44 @@ const server = new McpServer({
   version: '1.0.0'
 });
 
-server.tool('getAllDependencies',
-  `Fetch all dependent code components in call chain to analyze change required based on code dependency.`,
+async function _formatResult(vertices) {
+  const allIds = vertices.reduce((acc, item) => {
+    acc.push(...item.paths);
+    return acc;
+  }, []);
+  const uniqueIds = [...new Set(allIds)];
+  const uniqueVertices = uniqueIds.length > 0 ? await graphBuilder.getVerticesByIds(uniqueIds) : [];
+
+  if (uniqueVertices.length === 0) {
+    return {
+      content: [{ type: 'text', text: 'No related code components are found.' }]
+    };
+  }
+
+  const result = uniqueVertices.reduce((acc, vertex) => {
+    return `${acc}
+
+### \`${vertex.name}\` in system module: \`${vertex.systemModule}\`
+\`\`\`javascript
+${vertex.sourceCode}
+\`\`\`
+    `;
+  }, 'Below code components in each file are all related to provided component.\n\n');
+
+  return {
+    content: [{ type: 'text', text: String(result) }]
+  };
+}
+
+server.tool('listComponents',
+  `Find all code components based on name and implemented language.`,
   {
     name: z.string().describe('Name of the component.  Normally the function name.'),
-    microService: z.string().describe('Name of the microservice.  Project root folder name could be used.'),
-    systemModule: z.string().describe('Name of the module.  Relative file path could be used.'),
-    sourceCode: z.string().describe('Source code of the function.'),
+    language: z.enum(['javascript', 'java']).describe('Implemented language of the component.  javascript, java, or others.'),
   },
-  async (vertex) => {
+  async ({ name, language }) => {
     try {
-      vertex.category = 'component';
-      const descendants = await graphBuilder.getDescendants(vertex);
-      const ancestors = await graphBuilder.getAncestors(vertex);
-
-      const allIds = ancestors.concat(descendants).reduce((acc, item) => {
-        acc.push(...item.paths);
-        return acc;
-      }, []);
-      const uniqueIds = [...new Set(allIds)];
-      const vertices = uniqueIds.length > 0 ? await graphBuilder.getVerticesByIds(uniqueIds) : [];
+      const vertices = await graphBuilder.getComponentByNameAndLanguage(name, language);
 
       if (vertices.length === 0) {
         return {
@@ -38,19 +56,91 @@ server.tool('getAllDependencies',
         };
       }
 
-      const result = vertices.reduce((acc, vertex) => {
-        return `${acc}
-
-**Source File:** ${vertex.name} in ${vertex.systemModule}
-\`\`\`javascript
-${vertex.sourceCode}
-\`\`\`
-    `;
-      }, 'Below code components in each file are all related to provided component.\n\n');
+      const result = vertices.map((vertex) => {
+        return `* \`${vertex.name}\` in source file: \`${vertex.systemModule}\``;
+      }).join('\n');
 
       return {
-        content: [{ type: 'text', text: String(result) }]
+        content: [{ type: 'text', text: `Below code components in each file are found.\n\n${result}` }]
       };
+    } catch (error) {
+      console.error(error);
+      return {
+        content: [{ type: 'text', text: error.message || 'Error' }]
+      };
+    }
+  }
+);
+
+server.tool('listUpstreamDependencies',
+  `Find upstream code components in the call chain to the provided component based on code dependency.
+If interface of the provided component is changed, the upstream components need to be updated.`,
+  {
+    name: z.string().describe('Name of the component.  Normally the function name.'),
+    microService: z.string().describe('Name of the microservice.  Project root folder name could be used.'),
+    systemModule: z.string().describe('Name of the module.  Relative file path could be used.'),
+    sourceCode: z.string().optional().describe('Source code of the provided component if changed.'),
+    dependencyType: z.string().default('Function').describe('Type of the dependency.  Function, Field, or others.'),
+    hasSourceCode: z.coerce.boolean().default(true).describe('Whether the dependent component has source code or not.  Normally set to true to exclude external libraries.'),
+  },
+  async (vertex) => {
+    try {
+      vertex.category = 'component';
+      const ancestors = await graphBuilder.getAncestors(vertex, vertex.dependencyType, vertex.hasSourceCode);
+
+      return _formatResult(ancestors);
+    } catch (error) {
+      console.error(error);
+      return {
+        content: [{ type: 'text', text: error.message || 'Error' }]
+      };
+    }
+  }
+);
+
+server.tool('listDownstreamDependencies',
+  `Find downstream code components in the call chain from the provided component based on code dependency.
+If interface of the provided component is NOT changed, only the implementation is changed.  The downstream components should be checked for change.`,
+  {
+    name: z.string().describe('Name of the component.  Normally the function name.'),
+    microService: z.string().describe('Name of the microservice.  Project root folder name could be used.'),
+    systemModule: z.string().describe('Name of the module.  Relative file path could be used.'),
+    sourceCode: z.string().optional().describe('Source code of the provided component if changed.'),
+    dependencyType: z.string().default('Function').describe('Type of the dependency.  Function, Field, or others.'),
+    hasSourceCode: z.coerce.boolean().default(true).describe('Whether the dependent component has source code or not.  Normally set to true to exclude external libraries.'),
+  },
+  async (vertex) => {
+    try {
+      vertex.category = 'component';
+      const descendants = await graphBuilder.getDescendants(vertex, vertex.dependencyType, vertex.hasSourceCode);
+
+      return _formatResult(descendants);
+    } catch (error) {
+      console.error(error);
+      return {
+        content: [{ type: 'text', text: error.message || 'Error' }]
+      };
+    }
+  }
+);
+
+server.tool('listAllDependencies',
+  `Find all dependent code components in call chain to analyze required change based on code dependency.`,
+  {
+    name: z.string().describe('Name of the component.  Normally the function name.'),
+    microService: z.string().describe('Name of the microservice.  Project root folder name could be used.'),
+    systemModule: z.string().describe('Name of the module.  Relative file path could be used.'),
+    sourceCode: z.string().optional().describe('Source code of the provided component if changed.'),
+    dependencyType: z.string().default('Function').describe('Type of the dependency.  Function, Field, or others.'),
+    hasSourceCode: z.coerce.boolean().default(true).describe('Whether the dependent component has source code or not.  Normally set to true to exclude external libraries.'),
+  },
+  async (vertex) => {
+    try {
+      vertex.category = 'component';
+      const descendants = await graphBuilder.getDescendants(vertex, vertex.dependencyType, vertex.hasSourceCode);
+      const ancestors = await graphBuilder.getAncestors(vertex, vertex.dependencyType, vertex.hasSourceCode);
+
+      return _formatResult(ancestors.concat(descendants));
     } catch (error) {
       console.error(error);
       return {

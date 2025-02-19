@@ -30,7 +30,11 @@ function _getRequireSource(node) {
     if (node.children[0].text === 'require') {
       const source = _oneChildrenOfType(node.children[1], 'string');
       if (source) {
-        return source.children[1].text;
+        let path = source.children[1].text;
+        if (path.indexOf('.') > -1 && !path.endsWith('.js')) {
+          path += '.js';
+        }
+        return path;
       }
     } else if (node.children[0].type === 'member_expression') {
       // require('xxxx').xyz
@@ -307,7 +311,7 @@ function _forInStatementHandler(scopeInstanceName, node, requiredModuleDependenc
   _walkAndBuildDependency(scopeInstanceName, node.children[node.children.length - 1], requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables);
 }
 
-const OPERATORS_OR_KEYWORDS = ['{', '}', ',', ';', '@', 'export', 'return', 'await', 'comment', 'if', 'else', 'delete', 'const', 'for', 'of', 'while', 'instanceof', 'static', 'yield', 'try', 'throw', 'continue_statement', 'break_statement', 'empty_statement', 'typeof', 'undefined', 'null', 'true', 'false', 'number', '...', '=', '\'', '"', '+', '-', '*', '/', '?', ':', '[', ']', '(', ')', '>', '<', '>=', '<=', '==', '===', '!=', '!==', '&&', '||', '!', '++', '--'];
+const OPERATORS_OR_KEYWORDS = ['{', '}', ',', ';', '@', 'export', 'return', 'await', 'comment', 'if', 'else', 'delete', 'const', 'for', 'of', 'while', 'instanceof', 'static', 'yield', 'try', 'throw', 'continue_statement', 'break_statement', 'empty_statement', 'typeof', 'undefined', 'null', 'true', 'false', 'number', '...', '=', '\'', '"', '+', '-', '*', '/', '?', '%', '??', ':', '[', ']', '(', ')', '>', '<', '>=', '<=', '==', '===', '!=', '!==', '&&', '||', '!', '++', '--', '+=', '-='];
 
 function _moduleExportHandler(scopeInstanceName, node, requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables) {
   const children = node.children;
@@ -726,6 +730,7 @@ const NODE_TYPE_HANDLERS = {
   class_static_block: _generalExpressionHandler,
   assignment_expression: _assignmentExpressionHandler,
   subscript_expression: _generalExpressionHandler,
+  augmented_assignment_expression: _generalExpressionHandler,
   yield_expression: _generalExpressionHandler,
   regex: _identifierHandler,
   this: _identifierHandler,
@@ -881,20 +886,19 @@ function _convertDependencyStructure(node, requiredModuleDependencies, instanceA
 
     if (usage === '$property') {
       dependency.instanceName = dependency.$sourceProperty || dependency.instanceName;
-    } else if (externalModuleDependency.isDefault || externalModuleDependency.isNamespace) {
-      // Directly reference to module.  Should use external module name as instanceName instead of alias in file
-      dependency.instanceName = externalModuleDependency.source;
-    // } else if (!externalModuleDependency.isDefault && !externalModuleDependency.isNamespace) {
-      // External module is not default export, then it's a field of the module, keep it as it is
-      // dependency.instanceName = `${externalModuleDependency.source}.${dependencyName}`;
-    } else {
+    } else if (dependency.instanceName.indexOf('.') > 0) {
       dependency.instanceName = dependencyName.replace(`${topLevelName}.`, '');
+    } else if (externalModuleDependency.isDefault || externalModuleDependency.isNamespace) {
+      dependency.instanceName = 'default';
+      // TODO: Handle various situation, including default export and namespace export
+      // 1. Directly reference to module.  Should use external module name (or 'default'?) as instanceName instead of alias in file
+      // 2. External module is not default export, then it's a field of the module, keep it as it is
     }
   } else if (dependencyName !== topLevelName && instanceAndfunctionDependencies[topLevelName]) {
     // Internal reference to xxx.yyy.  xxx can be either exported or not
     const topLevelModule = instanceAndfunctionDependencies[topLevelName];
 
-  if (topLevelModule.$constructor) {
+    if (topLevelModule.$constructor) {
       dependency.instanceName = dependencyName.replace(`${topLevelName}.`, `${topLevelModule.$constructor}.`);
     }
   }

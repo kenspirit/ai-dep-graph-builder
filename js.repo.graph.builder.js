@@ -184,6 +184,7 @@ async function _getFunctionDescriptionThroughAI(functionSourceCode) {
 const NATIVE_MODULES = ['JSON', 'Set', 'Array', 'Map', 'console', 'Error', 'Buffer', 'Promise', 'Uint8Array', 'Date', 'process', 'require'];
 
 function _setSystemModule(dependency, systemModuleName) {
+  dependency.systemModule = dependency.systemModule || '';
   if (dependency.systemModule === '$file') {
     dependency.systemModule = systemModuleName;
   }

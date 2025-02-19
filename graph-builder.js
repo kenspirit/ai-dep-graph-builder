@@ -35,7 +35,8 @@ const VERTEX_SCHEMA = joi.object({
     is: 'component',
     then: joi.required(),
     otherwise: joi.forbidden()
-  })
+  }),
+  language: joi.string()
 }).id('vertex');
 
 const VERTEX_QUERY_SCHEMA = joi.object({
@@ -50,7 +51,8 @@ const VERTEX_QUERY_SCHEMA = joi.object({
     is: 'component',
     then: joi.required(),
     otherwise: joi.forbidden()
-  })
+  }),
+  language: joi.string()
 }).unknown(true);
 
 class GraphBuilder {
@@ -188,11 +190,15 @@ class GraphBuilder {
     return this.connector.getVerticesByCategory(category);
   }
 
+  async getComponentByNameAndLanguage(name, language) {
+    return this.connector.getComponentByNameAndLanguage(name, language);
+  }
+
   async getVerticesByTypesWithDescription(category, types) {
     return this.connector.getVerticesByTypesWithDescription(category, types);
   }
 
-  async getDescendants(vertex) {
+  async getDescendants(vertex, type, hasSourceCode) {
     // Format should be as below and the sub-paths, such as [1, 2], should not be included.
     // The paths should be the vertex identifiers.
     // [
@@ -200,11 +206,11 @@ class GraphBuilder {
     //   { paths: [1, 2, 4] },
     //   { paths: [1, 5, 6] }
     // ]
-    return this.connector.getDescendants(vertex);
+    return this.connector.getDescendants(vertex, type, hasSourceCode);
   }
 
-  async getAncestors(vertex) {
-    return this.connector.getAncestors(vertex);
+  async getAncestors(vertex, type, hasSourceCode) {
+    return this.connector.getAncestors(vertex, type, hasSourceCode);
   }
 }
 
