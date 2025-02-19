@@ -29,6 +29,7 @@ async function _formatResult(vertices) {
     return `${acc}
 
 ### \`${vertex.name}\` in system module: \`${vertex.systemModule}\`
+
 \`\`\`javascript
 ${vertex.sourceCode}
 \`\`\`

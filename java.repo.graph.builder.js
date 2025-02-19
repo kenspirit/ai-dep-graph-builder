@@ -37,6 +37,7 @@ function _convertInstanceAndFunctionDependencies(fileName, moduleDependencyMap, 
     const isFunction = ['method', 'constructor'].includes(dependency.type);
 
     const converted = {
+      language: 'java',
       public: dependency.visibility !== 'private',
       visibility: dependency.visibility,
       category: 'component',

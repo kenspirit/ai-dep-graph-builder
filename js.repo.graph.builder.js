@@ -207,6 +207,7 @@ function _convertInstanceAndFunctionDependencies(systemModuleName, moduleDepende
     const isFunction = dependency.type === 'method';
 
     const converted = {
+      language: 'javascript',
       public: dependency.public,
       category: 'component',
       name: dependency.instanceName,
@@ -248,6 +249,7 @@ function _convertVueDependencies(systemModuleName, moduleDependencyMap, dependen
     const isFunction = dependency.type === 'method';
 
     const converted = {
+      language: 'javascript',
       public: typeof dependency.public !== 'undefined' ? dependency.public : (level === 0),
       category: 'component',
       name: dependency.instanceName,
@@ -263,6 +265,7 @@ function _convertVueDependencies(systemModuleName, moduleDependencyMap, dependen
       // Top level component special handling
       converted.dependencies = dependency.dependencies.map(prop => {
         const innerDependency = {
+          language: 'javascript',
           public: true,
           category: 'component',
           name: prop.instanceName,
