@@ -47,7 +47,7 @@ After startup, can access [ArcadeDB Studio](http://localhost:2480/) with `root/p
 Add `sample.config.js` like below:
 
 ```javascript
-{
+export default {
   graph: {
     type: 'ARCADEDB',
     connectionOptions: {
