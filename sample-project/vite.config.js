@@ -53,5 +53,10 @@ export default defineConfig({
         changeOrigin: true
       }
     }
+  },
+  build: {
+    rollupOptions: {
+      external: ['axios']
+    }
   }
 })

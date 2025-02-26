@@ -190,8 +190,8 @@ class GraphBuilder {
     return this.connector.getVerticesByCategory(category);
   }
 
-  async getComponentByNameAndLanguage(name, language) {
-    return this.connector.getComponentByNameAndLanguage(name, language);
+  async getComponentByNameAndLanguage(name, language, systemModule) {
+    return this.connector.getComponentByNameAndLanguage(name, language, systemModule);
   }
 
   async getVerticesByTypesWithDescription(category, types) {

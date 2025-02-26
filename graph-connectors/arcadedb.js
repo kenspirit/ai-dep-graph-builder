@@ -179,8 +179,15 @@ CREATE INDEX IF NOT EXISTS ON SystemModule (microService, name) UNIQUE;`;
     return result.map(assignCategory);
   }
 
-  async getComponentByNameAndLanguage(name, language) {
-    const result = await this._dbCommand('query', undefined, `SELECT FROM Component WHERE name = :name AND language = :language;`, { name, language });
+  async getComponentByNameAndLanguage(name, language, systemModule) {
+    const params = { name, language };
+    let sql = `SELECT FROM Component WHERE name = :name AND language = :language`;
+    if (systemModule) {
+      sql += ` AND systemModule LIKE :systemModule`;
+      params.systemModule = `%${systemModule}%`;
+    }
+
+    const result = await this._dbCommand('query', undefined, sql, params);
     return result.map(assignCategory);
   }
 

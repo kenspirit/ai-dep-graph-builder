@@ -11,19 +11,92 @@
   "contributes": {
     "commands": [
       {
-        "command": "extension.changeAndAffected",
-        "title": "Advice Change and find Affected"
+        "command": "extension.analyzeCodeDependency",
+        "title": "Analyze code dependency"
       }
     ],
     "menus": {
-      "editor/context": [
+      "explorer/context": [
         {
-          "command": "extension.changeAndAffected",
-          "when": "editorTextFocus",
+          "command": "extension.analyzeCodeDependency",
+          "when": "explorerResourceIsFolder",
           "group": "navigation"
         }
       ]
-    }
+    },
+    "configuration": {
+      "type": "object",
+      "title": "AI Buddy",
+      "properties": {
+        "aiBuddy.mcpServerPath": {
+          "type": "string",
+          "default": "",
+          "description": "MCP Server Path"
+        },
+        "aiBuddy.database.type": {
+          "type": "string",
+          "enum": [
+            "ARCADEDB"
+          ],
+          "enumDescriptions": [
+            "ArcadeDB"
+          ],
+          "default": "ARCADEDB",
+          "description": "Database Type"
+        },
+        "aiBuddy.database.host": {
+          "type": "string",
+          "default": "",
+          "description": "Database host"
+        },
+        "aiBuddy.database.port": {
+          "type": "string",
+          "default": "",
+          "description": "Database port"
+        },
+        "aiBuddy.database.name": {
+          "type": "string",
+          "default": "",
+          "description": "Database name"
+        },
+        "aiBuddy.database.user": {
+          "type": "string",
+          "default": "",
+          "description": "Database user"
+        },
+        "aiBuddy.database.password": {
+          "type": "string",
+          "default": "",
+          "description": "Database password"
+        }
+      }
+    },
+    "chatParticipants": [
+      {
+        "id": "aiBuddy.code-dependency",
+        "name": "code-dependency",
+        "fullName": "Code Dependency",
+        "isSticky": true,
+        "commands": [
+          {
+            "name": "dependency",
+            "description": "Obtain code dependency (upstream/downstream/all)"
+          }
+        ],
+        "disambiguation": [
+          {
+            "category": "cat",
+            "description": "The user wants to find change impact or dependent code components of selected Function.",
+            "examples": [
+              "What are impacted if I change this function?",
+              "What changes are required if I made change like this?",
+              "What is the call chain of this function?",
+              "What functions are dependent on this?"
+            ]
+          }
+        ]
+      }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
@@ -40,6 +113,7 @@
     "typescript": "^5.6.3"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.5.0",
     "axios": "^1.7.7"
   }
 }

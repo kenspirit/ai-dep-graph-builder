@@ -28,13 +28,13 @@ async function _formatResult(vertices) {
   const result = uniqueVertices.reduce((acc, vertex) => {
     return `${acc}
 
-### \`${vertex.name}\` in system module: \`${vertex.systemModule}\`
+### \`${vertex.name}\` in system module: \`${vertex.systemModule}\` of microservice: \`${vertex.microService}\`
 
 \`\`\`javascript
 ${vertex.sourceCode}
 \`\`\`
     `;
-  }, 'Below code components in each file are all related to provided component.\n\n');
+  }, 'Below code components are found.\n\n');
 
   return {
     content: [{ type: 'text', text: String(result) }]
@@ -46,23 +46,25 @@ server.tool('listComponents',
   {
     name: z.string().describe('Name of the component.  Normally the function name.'),
     language: z.enum(['javascript', 'java']).describe('Implemented language of the component.  javascript, java, or others.'),
+    systemModule: z.string().optional().describe('Name of the module.  Relative file path could be used.  Partial match is supported.'),
+    format: z.enum(['json', 'md']).default('md').describe('Format of the result.  json or md.'),
   },
-  async ({ name, language }) => {
+  async ({ name, language, systemModule, format }) => {
     try {
-      const vertices = await graphBuilder.getComponentByNameAndLanguage(name, language);
+      const vertices = await graphBuilder.getComponentByNameAndLanguage(name, language, systemModule);
 
       if (vertices.length === 0) {
         return {
-          content: [{ type: 'text', text: 'No related code components are found.' }]
+          content: [{ type: 'text', text: format === 'json' ? '[]' : 'No related code components are found.' }]
         };
       }
 
-      const result = vertices.map((vertex) => {
-        return `* \`${vertex.name}\` in source file: \`${vertex.systemModule}\``;
+      const result = vertices.map((vertex, index) => {
+        return `${index + 1}. \`${vertex.name}\` in system module: \`${vertex.systemModule}\` of microservice: \`${vertex.microService}\``;
       }).join('\n');
 
       return {
-        content: [{ type: 'text', text: `Below code components in each file are found.\n\n${result}` }]
+        content: [{ type: 'text', text: format === 'json' ? JSON.stringify(vertices) : `Below code components are found.\n\n${result}` }]
       };
     } catch (error) {
       console.error(error);

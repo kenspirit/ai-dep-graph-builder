@@ -25,3 +25,5 @@ vite.config.ts.timestamp-*
 .idea
 .shire
 arcadedb
+.npmrc
+package-lock.json
