@@ -1,6 +1,6 @@
 import express from 'express';
 import path from 'path';
-import { loadModules } from './server/util/module.loader.js';
+import { loadModules } from '../module.loader.js';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);

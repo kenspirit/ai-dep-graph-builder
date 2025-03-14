@@ -3,7 +3,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 
 export async function getMcpClient(): Promise<Client | undefined> {
-  const mcpServerPath = vscode.workspace.getConfiguration().get('aiBuddy.mcpServerPath');
+  const mcpServerPath = vscode.workspace.getConfiguration().get('codeDependency.mcpServerPath');
   if (!mcpServerPath) {
     vscode.window.showErrorMessage('MCP Server path is not set. Please configure the MCP Server path first.');
     return;

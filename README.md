@@ -27,8 +27,8 @@ This tool includes below major components:
 - Sample project providing restful API for graph component manipulation and visualization UI
   - Under directory `sample-project`.
 
-- Sample VSCode extension that calls RESTful API provided by Sample Project.
-  - Under directory `ai-buddy`.
+- VSCode extension that can analyzes project and integrates with MCP server.
+  - Under directory `vsc-extension`.
 
 - MCP Server which retrieves Code Dependency from configured GraphDB based on provided code component.
   - `mcp-server.js`.
@@ -136,13 +136,16 @@ Vertex Schema
 ```javascript
 {
   name: '', // Function Name / Field Name / API URL / Queue Name / Table Name / Store Procedure Name
-  type: '', // `UI`, `Function` / `Field` / `Interface` (API / Queue / Table / Store Procedure), etc.
+  type: '', // `UI`, `Function` / `Field` / `Interface` (API / Queue / Table / Store Procedure) / `Config`, anything you want.
+  visibility: '', // public / private / protected
+  public: true/false, // Simple indicator to tell whether it's private, unaccessible outside
   description: '', // Generated from AI if it's Function
   microService: '',
   businessModules: [''], // Related Business Module that groups the Micro-Service if required.
-  public: true/false,
   systemModule: '', // Node.js package name, JavaScript file name, Java Full-qualified Name, such as `user/user.controller.js`, `com.xxx.user.UserController.java`
-  sourceCode: '' // Source Code of Function, mainly
+  sourceCode: '', // Source Code of Function, mainly
+  fileName: '', // Most of the time, it can possibly same as systemModule.  While say for JAVA, it could be different.
+  language: '' // java, javascript, yml etc.
 }
 ```
 

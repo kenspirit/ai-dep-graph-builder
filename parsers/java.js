@@ -2,7 +2,7 @@ import _ from 'lodash';
 import Parser from 'tree-sitter';
 import Java from 'tree-sitter-java';
 import fs from 'fs';
-import { initializeServer, hover } from './lsp-client.js';
+import { initializeServer, hover } from '../lsp-client.js';
 
 let filePath;
 
@@ -1112,6 +1112,9 @@ class AstParser {
   }
 
   async initializeLSP() {
+    if (this.initialized) {
+      return;
+    }
     await initializeServer(`file:///${this.rootDir}`);
     this.initialized = true;
   }
@@ -1138,11 +1141,10 @@ class AstParser {
   //     }
   //   ]
   // }
-  async getDependencies(sourceFile) {
+  async getDependencies(sourceFile, rawContent) {
     try {
       filePath = `${this.rootDir}/${sourceFile}`
-      const code = fs.readFileSync(filePath, 'utf8');
-      const tree = this.parser.parse(code);
+      const tree = this.parser.parse(rawContent);
       const rootNode = tree.rootNode;
       const requiredModuleDependencies = {};
       let instanceAndfunctionDependencies = {};

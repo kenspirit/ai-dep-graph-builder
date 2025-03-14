@@ -27,3 +27,5 @@ vite.config.ts.timestamp-*
 arcadedb
 .npmrc
 package-lock.json
+
+vsc-extension/src/shared/**/*

@@ -1,0 +1,148 @@
+{
+  "name": "code-dependency",
+  "displayName": "Code Dependency Analyzer",
+  "description": "Analyze Code Dependency & integrate with Copilot Chat",
+  "version": "0.1.0",
+  "repository": {
+    "url": "https://github.com/kenspirit/ai-dep-graph-builder/vsc-extension"
+  },
+  "publisher": "kenspirit",
+  "engines": {
+    "vscode": "^1.94.0"
+  },
+  "main": "./out/extension.js",
+  "extensionKind":[
+    "workspace"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "extension.analyzeCodeDependency",
+        "title": "Analyze code dependency"
+      }
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "extension.analyzeCodeDependency",
+          "when": "explorerResourceIsFolder",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "type": "object",
+      "title": "Code Dependency Analyzer",
+      "properties": {
+        "codeDependency.repoBuilderPath": {
+          "type": "object",
+          "default": "Custom Repo Builders.  Key should be language name, value should be absoluate path of the builder",
+          "description": "Absolute path of Repo Builder"
+        },
+        "codeDependency.mcpServerPath": {
+          "type": "string",
+          "default": "",
+          "description": "MCP Server Path"
+        },
+        "codeDependency.filesMatchingPatterns": {
+          "type": "array",
+          "default": [
+            ""
+          ],
+          "description": "Regular Expression of matching pattern"
+        },
+        "codeDependency.graph.type": {
+          "type": "string",
+          "enum": [
+            "ARCADEDB"
+          ],
+          "enumDescriptions": [
+            "ArcadeDB"
+          ],
+          "default": "ARCADEDB",
+          "description": "Database Type"
+        },
+        "codeDependency.graph.connectionOptions.host": {
+          "type": "string",
+          "default": "",
+          "description": "Database host"
+        },
+        "codeDependency.graph.connectionOptions.port": {
+          "type": "string",
+          "default": "",
+          "description": "Database port"
+        },
+        "codeDependency.graph.connectionOptions.database": {
+          "type": "string",
+          "default": "",
+          "description": "Database name"
+        },
+        "codeDependency.graph.connectionOptions.username": {
+          "type": "string",
+          "default": "",
+          "description": "Database user"
+        },
+        "codeDependency.graph.connectionOptions.password": {
+          "type": "string",
+          "default": "",
+          "description": "Database password"
+        },
+        "codeDependency.defaultAiProvider": {
+          "type": "string",
+          "default": "",
+          "description": "Key in aiProviders if want to enable AI"
+        },
+        "codeDependency.aiProviders": {
+          "type": "object",
+          "description": "Configuration object having Key as AI provider names"
+        }
+      }
+    },
+    "chatParticipants": [
+      {
+        "id": "code-dependency",
+        "name": "code-dependency",
+        "fullName": "Code Dependency",
+        "isSticky": true,
+        "commands": [
+          {
+            "name": "dependency",
+            "description": "Obtain code dependency (upstream/downstream/all)"
+          }
+        ],
+        "disambiguation": [
+          {
+            "category": "cat",
+            "description": "The user wants to find change impact or dependent code components of selected Function.",
+            "examples": [
+              "What are impacted if I change this function?",
+              "What changes are required if I made change like this?",
+              "What is the call chain of this function?",
+              "What functions are dependent on this?"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:package": "vsce package -o ./out/code-dependency.vsix",
+    "vscode:prepublish": "node ../scripts/generate-parser-index.js && node scripts/copy-shared-files.js && npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.8",
+    "@types/vscode": "^1.94.0",
+    "eslint": "^9.13.0",
+    "fs-extra": "^11.3.0",
+    "typescript": "^5.6.3"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.5.0",
+    "axios": "^1.7.7"
+  }
+}

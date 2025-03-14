@@ -14,11 +14,11 @@ const VERTEX_SCHEMA = joi.object({
   fileName: joi.string(), // File name
   visibility: joi.string(),
   public: joi.boolean().default(false),
-  description: joi.string(),
+  description: joi.string().allow('', null).default(''),
   dependencies: joi.array().items(joi.link('#vertex')),
   sourceCode: joi.string().when('category', {
     is: 'component',
-    then: joi.string().default(''),
+    then: joi.string().allow('', null).default(''),
     otherwise: joi.forbidden()
   }),
   businessModules: joi.array().when('category', {
