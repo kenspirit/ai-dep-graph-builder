@@ -34,11 +34,6 @@
       "type": "object",
       "title": "Code Dependency Analyzer",
       "properties": {
-        "codeDependency.repoBuilderPath": {
-          "type": "object",
-          "default": "Custom Repo Builders.  Key should be language name, value should be absoluate path of the builder",
-          "description": "Absolute path of Repo Builder"
-        },
         "codeDependency.mcpServerPath": {
           "type": "string",
           "default": "",
@@ -86,6 +81,16 @@
           "type": "string",
           "default": "",
           "description": "Database password"
+        },
+        "codeDependency.repoBuilderPath": {
+          "type": "string",
+          "default": "",
+          "description": "Absolute path of Custom Repo Builder"
+        },
+        "codeDependency.parsers": {
+          "type": "object",
+          "default": {},
+          "description": "Custom Language Parsers.  Key should be language name, value should be absoluate path of language parser."
         },
         "codeDependency.defaultAiProvider": {
           "type": "string",

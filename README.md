@@ -15,14 +15,16 @@ This project is to build the code dependency graph with the asistance of AI.  Du
 
 This tool includes below major components:
 - API for graph data (Node, Edge) manipulation against Graph Database  
-
-  - Exported from `index.js`, mainly includes `GraphBuilder`, `AiProvider`, `AstParser` and some facilitated APIs
+  - Exported from `index.js`, mainly includes `GraphBuilder`, `AiProvider` and some facilitated APIs
 
 - AI adaptors
   - Pre-defined `AiProvider` under directory `ai-providers`.
 
-- Graph data generation sample script.
-  - Sample Script `js.repo.graph.builder.js` and `java.repo.graph.builder.js` which build code dependency graph.
+- AST parsers
+  - Parsers for Java and JavaScript.
+
+- Repo builders that build code dependency graph.
+  - Sample Script `repo-builder.js` and a customized one `repo-builders/javascript.js` whichs handles JavaScript better and those speical `.routes.js` file in `sample-project`.
 
 - Sample project providing restful API for graph component manipulation and visualization UI
   - Under directory `sample-project`.
@@ -34,15 +36,16 @@ This tool includes below major components:
   - `mcp-server.js`.
 
 
-## Usage
+## Graph DB Setup - ArcadeDB
 
-### ArcadeDB
+GraphDB is used for storing Code Components and Relationships.  Currently only supports ArcadeDB.
 
 Start up DB through `download_start_arcadedb.bat` or `download_start_arcadedb.sh` to download and startup the ArcadeDB.  JDK 17 or above must exist.  Log file will be directed to `arcadedb.log`.
 
 After startup, can access [ArcadeDB Studio](http://localhost:2480/) with `root/playwithdata`.  Please create a database, such as named `code` for below usage.
 
-### Configuration
+
+## Configuration for MCP Server and Code Analysis Script
 
 Add `sample.config.js` like below:
 
@@ -59,7 +62,7 @@ export default {
     }
   },
   defaultAiProvider: 'MOONSHOT',
-  // filesMatchingPatterns: /.*\.java$/
+  // filesMatchingPatterns: /.*\.java$/,
   filesMatchingPatterns: [
     /.*\.(vue|js)$/,
     /^(?!.*\.(test|spec)\.js$)/,
@@ -77,29 +80,10 @@ export default {
 }
 ```
 
-### Environment Variables
 
-Some environment variables should be set before executing below script:
-1. `PROJECT_ROOT`: Absolute path of the project to be analyzed.
-2. `SERVICE_NAME`: Micro-Service Name of the project
-3. `AI_ENABLED`: If set to `false`, it will not try to send the function to AI provider to get description based on function implementation.
+## Configure MCP Server in Cline/RooCode or other supported IDEs:
 
-### Project Code Dependency Extraction
-
-For JavaScript project, invokes command `node js.repo.graph.builder.js`.  
-For JAVA project, invokes command `node java.repo.graph.builder.js`.  
-  - `java.repo.graph.builder` utilizes [LSP](https://microsoft.github.io/language-server-protocol/) besides AST.  You can start one using [Eclipse JDT](https://github.com/eclipse-jdtls/eclipse.jdt.ls).
-
-These command extracts the code dependency on the project specified in path `PROJECT_ROOT` and store to your graph database.
-
-### Code Dependency Retrieval from Graph DB
-
-After the code dependency stored in DB, sample web server of RESTful API can be started for dependency retrieval.  It's under directory `sample-project` and can be started as:  
-1. Run `npm install`
-2. Run `npm build`
-3. Run `node server.js`
-
-### Configure MCP Server in Cline/RooCode or other supported IDEs:
+MCP server integrated into IDE allows AI to retrieve Code Dependency extracted and stored in GraphDB.
 
 ```json
 {
@@ -117,6 +101,60 @@ After the code dependency stored in DB, sample web server of RESTful API can be 
   }
 }
 ```
+
+
+## Code Analysis
+
+### Use as VSC extension
+
+Run command `vscode:package` to package vsix file to `./out/code-dependency.vsix` and install locally.
+
+Configure extension properties with the same value from `sample.config.js`.  Difference is that the pattern in `filesMatchingPatterns` property of VSC extension has to be defined as String instead of RegExp.
+
+Right click the root folder (where package.json or pom.xml is located), click the "Analyze code dependency" menu item, it will prompt the micro-service name to input before analyzing.
+
+![Analyze Project](./screencaptures/extension_analyze.png)
+
+![Service Prompt](./screencaptures/extension_service_prompt.png)
+
+In VSC Copilot Chat, chat participant can be activated and retrieve code dependency for selected function using `@code-dependency /dependency [downstream/upstream/all]` (MCP Server Path `codeDependency.mcpServerPath` must be set in extension configuration)
+
+![Chat Participant](./screencaptures/chat_participant.png)
+
+
+### Run as Script
+
+### Environment Variables
+
+Some environment variables should be set before executing below script:
+1. `PROJECT_ROOT`: Absolute path of the project to be analyzed.
+2. `SERVICE_NAME`: Micro-Service Name of the project
+3. `AI_ENABLED`: If set to `true`, it sends the function to AI provider to get description based on function implementation.
+
+
+### Project Code Dependency Extraction
+
+For JavaScript project, invokes command `node repo-builders/repo-builder.js`.  
+For JAVA project, invokes command `node repo-builder.js`.  
+  - `parsers/java.js` utilizes [LSP](https://microsoft.github.io/language-server-protocol/) besides AST.  You can start one using [Eclipse JDT](https://github.com/eclipse-jdtls/eclipse.jdt.ls).
+
+These command extracts the code dependency on the project specified in path `PROJECT_ROOT` and store to your Graph DB.
+
+
+## Code Dependency Retrieval from Graph DB
+
+Beside using ArcadeDB's own console to run SQL or Gremlin language to retrieve code components and dependency.
+
+Sample project has provided a simple UI to get code dependency.  It's under directory `sample-project` and can be started as:  
+
+1. Run `npm install`
+2. Run `npm build`
+3. Run `node server.js`
+
+Accessor `http://localhost:3000/` to get dependency through UI.
+
+![Sample UI](./screencaptures/sample_UI.png)
+
 
 ## Code Dependency Graph Design Explained
 
