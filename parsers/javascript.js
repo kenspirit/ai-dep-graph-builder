@@ -951,6 +951,21 @@ class AstParser {
     return this.parser.parse(code);
   }
 
+  extractFunctionSignature(code = '') {
+    const functionRegex = /function\s+(\w+)\s*\(/;
+
+    // For arrow functions or methods in object literals
+    const arrowOrMethodRegex = /(?:const|let|var)?\s*(\w+)\s*[=:]\s*(?:function|\([^)]*\)\s*=>)/;
+
+    let match = code.match(functionRegex) || code.match(arrowOrMethodRegex);
+
+    if (match && match[1]) {
+      return match[1];
+    }
+
+    return null; // Return null if no function name is found
+  }
+
   async initializeLSP() {
   }
 

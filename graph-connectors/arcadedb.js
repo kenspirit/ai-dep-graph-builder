@@ -180,8 +180,8 @@ CREATE INDEX IF NOT EXISTS ON SystemModule (microService, name) UNIQUE;`;
   }
 
   async getComponentByNameAndLanguage(name, language, systemModule) {
-    const params = { name, language };
-    let sql = `SELECT FROM Component WHERE name = :name AND language = :language`;
+    const params = { name: `%${name}%`, language };
+    let sql = `SELECT FROM Component WHERE name LIKE :name AND language = :language`;
     if (systemModule) {
       sql += ` AND systemModule LIKE :systemModule`;
       params.systemModule = `%${systemModule}%`;

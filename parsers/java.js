@@ -736,6 +736,10 @@ async function _classDeclarationHandler(scopeInstanceName, node, requiredModuleD
   // Filter out all field_decalaration first to collect class level variables
   const body = _oneChildrenOfType(node, 'class_body') || _oneChildrenOfType(node, 'interface_body') ||
     _oneDescendantOfType(node, 'enum_body_declarations');
+  if (!body) {
+    return className;
+  }
+
   const classLevelVariables = {};
 
   const innerClasses = _allChildrenOfType(body, 'class_declaration');
@@ -924,6 +928,7 @@ const NODE_TYPE_HANDLERS = {
   catch_clause: _catchClauseHandler,
   cast_expression: _generalExpressionHandler,
   throw_statement: _generalExpressionHandler,
+  switch_expression: _generalExpressionHandler,
   comment: _ignoreHandler,
   block_comment: _ignoreHandler,
   line_comment: _ignoreHandler,
@@ -1109,6 +1114,11 @@ class AstParser {
 
   parse(code) {
     return this.parser.parse(code);
+  }
+
+  extractFunctionSignature(code = '') {
+    const functionSpec = code.split('{')[0].trim();
+    return _compactMethodSignature(functionSpec);
   }
 
   async initializeLSP() {

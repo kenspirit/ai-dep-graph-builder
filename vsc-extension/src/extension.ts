@@ -1,38 +1,30 @@
 import * as vscode from 'vscode';
 import { getMcpClient } from './mcpClient';
 
-
-function extractFunctionName(text: string): string | null {
-  // This regex looks for 'function' keyword followed by a name
-  const functionRegex = /function\s+(\w+)\s*\(/;
-
-  // For arrow functions or methods in object literals
-  const arrowOrMethodRegex = /(?:const|let|var)?\s*(\w+)\s*[=:]\s*(?:function|\([^)]*\)\s*=>)/;
-
-  let match = text.match(functionRegex) || text.match(arrowOrMethodRegex);
-
-  if (match && match[1]) {
-    return match[1];
-  }
-
-  return null; // Return null if no function name is found
-}
-
-function getSelectedFunction() {
+async function getSelectedFunction() {
   const editor = vscode.window.activeTextEditor;
 
   if (editor) {
+    const language = editor.document.languageId;
+    const pathComponents = editor.document.uri.path.split('/');
+    let fileName = pathComponents.pop() || '';
+
+
     const selection = editor.selection;
     const selectedText = editor.document.getText(selection);
-    const functionName = extractFunctionName(selectedText);
+    const { AstParser } = await import(`./shared/parsers/${language}`);
+    const parser = new AstParser();
+    let functionName = parser.extractFunctionSignature(selectedText)
+
+    if (language === 'java') {
+      fileName = fileName.replace('.java', '');
+      functionName = fileName + '.' + functionName;
+    }
+
     if (!functionName) {
       vscode.window.showInformationMessage('Not a valid function.');
       return;
     }
-
-    const language = editor.document.languageId;
-    const pathComponents = editor.document.uri.path.split('/');
-    const fileName = pathComponents.pop();
 
     return { functionName, language, fileName, sourceCode: selectedText };
   }
@@ -56,7 +48,7 @@ async function findComponents(mcpClient: any, functionObj: any) {
   return JSON.parse(res.content[0].text);
 }
 
-async function obtainDependencies(mcpClient: any, direction: string, functionName: string, microService: string, systemModule: string): Promise<string> {
+async function obtainDependencies(mcpClient: any, direction: string, language: string, functionName: string, microService: string, systemModule: string): Promise<string> {
   let name = 'listDownstreamDependencies';
   if (direction === 'upstream') {
     name = 'listUpstreamDependencies';
@@ -71,7 +63,7 @@ async function obtainDependencies(mcpClient: any, direction: string, functionNam
       microService,
       systemModule,
       dependencyType: 'Function',
-      hasSourceCode: true
+      hasSourceCode: language === 'javascript'
     }
   }) as MCPResponse;
 
@@ -182,12 +174,13 @@ export function activate(context: vscode.ExtensionContext) {
 
   const handler: vscode.ChatRequestHandler = async (request: vscode.ChatRequest, context: vscode.ChatContext, stream: vscode.ChatResponseStream, token: vscode.CancellationToken) => {
     if (request.command == 'dependency') {
-      const functionObj = getSelectedFunction();
+      const functionObj = await getSelectedFunction();
       if (!functionObj) {
         vscode.window.showInformationMessage('No function selected.');
         return;
       }
 
+      const language = functionObj.language;
       const mcpClient = await getMcpClient();
       if (!mcpClient) {
         vscode.window.showErrorMessage('MCP Client not available.');
@@ -228,7 +221,7 @@ export function activate(context: vscode.ExtensionContext) {
         stream.progress('Fetching dependencies ...');
 
         const component = foundComponents[index] || foundComponents[0];
-        dependencies = await obtainDependencies(mcpClient, prompt, component.name, component.microService, component.systemModule);
+        dependencies = await obtainDependencies(mcpClient, prompt, language, component.name, component.microService, component.systemModule);
         stream.markdown(dependencies);
       } else {
         stream.markdown('Multiple components found. Please select one by index (0-based):\n');
