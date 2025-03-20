@@ -1,0 +1,27 @@
+-- Downstream components that use provided component
+g.V().hasLabel('Component')
+  .has('name', '$name')
+  .has('systemModule', '$systemModule')
+  .has('type', 'Function')
+  .has('sourceCode', P.neq(null)).has('sourceCode', P.neq(''))
+  .out('Uses')
+  .emit()
+  .repeat(__.out('Uses'))
+  .has('type', 'Function')
+  .has('sourceCode', P.neq(null)).has('sourceCode', P.neq(''))
+  .path().dedup();
+
+
+-- Upstream components that use provided component
+g.V().hasLabel('Component')
+  .has('name', '$name')
+  .has('systemModule', '$systemModule')
+  .has('type', 'Function')
+  .has('sourceCode', P.neq(null)).has('sourceCode', P.neq(''))
+  .in('Uses')
+  .emit()
+  .repeat(__.in('Uses'))
+  .has('type', 'Function')
+  .has('sourceCode', P.neq(null)).has('sourceCode', P.neq(''))
+  .path().dedup();
+
