@@ -30,7 +30,7 @@ export class RepoBuilder {
     return fileSuffix === 'js' ? 'javascript' : fileSuffix;
   }
 
-  async buildGraph() {
+  async buildGraph(parsedDirOrFile) {
     await this.builder.initGraph();
 
     await this.persistVertex({
@@ -40,10 +40,17 @@ export class RepoBuilder {
       type: 'microService'
     });
 
-    await this.buildSystemModuleVertices(this.rootDir, this.config);
+    if (parsedDirOrFile) {
+      parsedDirOrFile = path.resolve(this.rootDir, parsedDirOrFile);
+    }
+
+    await this.buildSystemModuleVertices(this.rootDir, this.config, parsedDirOrFile);
+
+    return parsedDirOrFile;
   }
 
   async persistVertex(vertex) {
+    console.log(`Persisting vertex: ${vertex.name} with children: ${vertex.dependencies?.length || 0}`);
     await this.builder.createVertex(vertex);
   }
 
@@ -66,8 +73,8 @@ export class RepoBuilder {
     return this.parserInstances[language];
   }
 
-  async buildSystemModuleVertices(rootDir, config) {
-    const codeFiles = await loadModules(rootDir, config.filesMatchingPatterns, false, config.vscExtension);
+  async buildSystemModuleVertices(rootDir, config, parsedDirOrFile) {
+    const codeFiles = await loadModules(parsedDirOrFile || rootDir, config.filesMatchingPatterns, false, config.vscExtension);
 
     for (const result of codeFiles) {
       const { filePath, rawContent } = result;
@@ -154,6 +161,15 @@ export function isDirectlyExecuted() {
 }
 
 if (isDirectlyExecuted()) {
+  const parsedDirOrFile = process.argv[2];
+  if (parsedDirOrFile) {
+    // Single directory or file is passed
+    if (!process.env.PROJECT_ROOT) {
+      console.error('Please set PROJECT_ROOT environment variable to the root directory of the project');
+      process.exit(1);
+    }
+  }
+
   const currentFileName = fileURLToPath(import.meta.url);
   const currentDirName = path.dirname(currentFileName);
 
@@ -164,6 +180,6 @@ if (isDirectlyExecuted()) {
   config.default.aiEnabled = process.env.AI_ENABLED === 'true';
 
   const builder = new RepoBuilder(rootDir, microService, config.default);
-  await builder.buildGraph();
+  await builder.buildGraph(parsedDirOrFile);
   process.exit(0);
 }

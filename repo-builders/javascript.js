@@ -5,10 +5,10 @@ import { loadModules } from '../module.loader.js';
 import { RepoBuilder } from '../repo-builder.js';
 
 class CustomNodeProjectBuilder extends RepoBuilder {
-  async buildGraph() {
-    await super.buildGraph();
+  async buildGraph(parsedDirOrFile) {
+    parsedDirOrFile = await super.buildGraph(parsedDirOrFile);
 
-    await this.buildSystemModuleVerticesFromRouteModules(this.microService);
+    await this.buildSystemModuleVerticesFromRouteModules(this.microService, parsedDirOrFile);
   }
 
   convertGraphComponents(fileName, language, microService, moduleDependencyMap, dependencies = []) {
@@ -35,8 +35,8 @@ class CustomNodeProjectBuilder extends RepoBuilder {
     return result.filter(dependency => !NATIVE_MODULES.includes(dependency.systemModule));
   }
 
-  async buildSystemModuleVerticesFromRouteModules(microService) {
-    const routeModules = await loadModules(this.rootDir, /.*\.routes\.js$/, true, this.config.vscExtension);
+  async buildSystemModuleVerticesFromRouteModules(microService, parsedDirOrFile) {
+    const routeModules = await loadModules(parsedDirOrFile || this.rootDir, /.*\.routes\.js$/, true, this.config.vscExtension);
 
     for (const result of routeModules) {
       const { filePath, loadedModule, rawContent } = result;
@@ -234,6 +234,15 @@ export function isDirectlyExecuted() {
 }
 
 if (isDirectlyExecuted()) {
+  const parsedDirOrFile = process.argv[2];
+  if (parsedDirOrFile) {
+    // Single directory or file is passed
+    if (!process.env.PROJECT_ROOT) {
+      console.error('Please set PROJECT_ROOT environment variable to the root directory of the project');
+      process.exit(1);
+    }
+  }
+
   const currentFileName = fileURLToPath(import.meta.url);
   const currentDirName = path.dirname(currentFileName);
 
@@ -244,6 +253,6 @@ if (isDirectlyExecuted()) {
   config.default.aiEnabled = process.env.AI_ENABLED === 'true';
 
   const builder = new CustomNodeProjectBuilder(rootDir, microService, config.default);
-  await builder.buildGraph();
+  await builder.buildGraph(parsedDirOrFile);
   process.exit(0);
 }
