@@ -1,0 +1,48 @@
+{
+  "requiredModuleDependencies": {
+    "McpServer": {
+      "source": "@modelcontextprotocol/sdk/server/mcp.js"
+    }
+  },
+  "instanceAndfunctionDependencies": {
+    "dependencies": [
+      {
+        "module": "$file",
+        "instanceName": "getMcpServer",
+        "type": "method",
+        "public": true,
+        "usage": "$property",
+        "sourceCode": "$SOURCE_CODE$",
+        "dependencies": [
+          {
+            "module": "@modelcontextprotocol/sdk/server/mcp.js",
+            "instanceName": "McpServer",
+            "type": "constructor",
+            "public": true,
+            "usage": "new McpServer({\r\n    name: 'Code Dependency Retrieval',\r\n    version: '1.0.0'\r\n  })",
+            "externalSource": {
+              "source": "@modelcontextprotocol/sdk/server/mcp.js"
+            },
+            "dependencies": []
+          },
+          {
+            "module": "this",
+            "instanceName": "getMcpServer$name",
+            "type": "string",
+            "usage": "name: 'Code Dependency Retrieval'",
+            "sourceCode": "'Code Dependency Retrieval'",
+            "dependencies": []
+          },
+          {
+            "module": "this",
+            "instanceName": "getMcpServer$version",
+            "type": "string",
+            "usage": "version: '1.0.0'",
+            "sourceCode": "'1.0.0'",
+            "dependencies": []
+          }
+        ]
+      }
+    ]
+  }
+}

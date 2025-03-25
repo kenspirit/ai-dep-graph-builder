@@ -1,0 +1,32 @@
+{
+  "requiredModuleDependencies": {},
+  "instanceAndfunctionDependencies": {
+    "dependencies": [
+      {
+        "module": "$file",
+        "instanceName": "innerFunction",
+        "type": "method",
+        "usage": "method",
+        "sourceCode": "$SOURCE_CODE$",
+        "dependencies": []
+      },
+      {
+        "module": "$file",
+        "instanceName": "publicFunction",
+        "type": "method",
+        "public": true,
+        "usage": "$property",
+        "sourceCode": "$SOURCE_CODE$",
+        "dependencies": [
+          {
+            "module": "this",
+            "instanceName": "innerFunction",
+            "type": "method",
+            "usage": "innerFunction()",
+            "dependencies": []
+          }
+        ]
+      }
+    ]
+  }
+}

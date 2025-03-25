@@ -18,6 +18,16 @@ function _allChildrenOfType(node, type) {
   return _.filter(node.children, child => child.type === type);
 }
 
+function _setDependencyTypeBasedOnNodeType(dependency, node) {
+  if (['string', 'template_string'].includes(node.type)) {
+    dependency.$type = 'string';
+    dependency.$sourceCode = node.text;
+  } else if (node.type === 'array') {
+    dependency.$type = 'array';
+  }
+  dependency.$value = node.text; // string value here;
+}
+
 function _programHandler(scopeInstanceName, node, requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables) {
   const sectionNodes = node.children;
   for (let i = 0; i < sectionNodes.length; i++) {
@@ -181,12 +191,10 @@ function _lexicalDeclarationHandler(scopeInstanceName, node, requiredModuleDepen
     } else {
       // Assuming left side is always identifier
       const variableIdentifier = variableIdentifiers[0];
-      let scopeIdentifier = variableIdentifier;
       let dependency;
 
       if (localScopeVariables.includes(variableIdentifier)) {
         dependency = instanceAndfunctionDependencies;
-        scopeIdentifier = scopeInstanceName;
       } else {
         dependency = _captureDependency(instanceAndfunctionDependencies, variableIdentifier);
         if (variableIdentifier && assignmentNode.type === 'array') {
@@ -194,7 +202,7 @@ function _lexicalDeclarationHandler(scopeInstanceName, node, requiredModuleDepen
         }
       }
 
-      assignmentIdentifiers = _walkAndBuildDependency(scopeIdentifier, assignmentNode, requiredModuleDependencies, dependency, level, localScopeVariables);
+      assignmentIdentifiers = _walkAndBuildDependency(scopeInstanceName, assignmentNode, requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables);
       if (assignmentNode.type === 'new_expression') {
         const variableDependency = _captureDependency(instanceAndfunctionDependencies, variableIdentifier);
         variableDependency.$constructor = assignmentIdentifiers[0];
@@ -266,7 +274,7 @@ function _newExpressionHandler(scopeInstanceName, node, requiredModuleDependenci
   dependency.$type = 'constructor';
 
   // Handle arguments
-  _walkAndBuildDependency(dependentIdentifer || scopeInstanceName, node.children[2], requiredModuleDependencies, dependency, level, localScopeVariables);
+  _walkAndBuildDependency(scopeInstanceName, node.children[2], requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables);
 
   return dependentIdentifer;
 }
@@ -275,10 +283,13 @@ function _callExpressionHandler(scopeInstanceName, node, requiredModuleDependenc
   const dependentIdentifer = _walkAndBuildDependency(scopeInstanceName, node.children[0], requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables)[0];
 
   // If first children is member expression, it's captured in instanceAndfunctionDependencies above already
-  const dependency = _captureDependencyWithScope(scopeInstanceName, dependentIdentifer, instanceAndfunctionDependencies, node, level);
+  if (instanceAndfunctionDependencies[dependentIdentifer]) {
+    instanceAndfunctionDependencies[dependentIdentifer].$usage = node.text;
+  }
+  _captureDependencyWithScope(scopeInstanceName, dependentIdentifer, instanceAndfunctionDependencies, node, level);
 
   // Handle arguments
-  _walkAndBuildDependency(dependentIdentifer || scopeInstanceName, node.children[1], requiredModuleDependencies, dependency[dependentIdentifer], level, localScopeVariables);
+  _walkAndBuildDependency(scopeInstanceName || dependentIdentifer, node.children[1], requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables);
 
   return dependentIdentifer;
 }
@@ -374,21 +385,9 @@ function _assignmentExpressionHandler(scopeInstanceName, node, requiredModuleDep
     return _moduleExportHandler(scopeInstanceName, node, requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables);
   }
 
-  const assignedIdentifiers = _walkAndBuildDependency(scopeInstanceName, assignedNode, requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables);
+  _walkAndBuildDependency(scopeInstanceName, assignedNode, requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables);
 
-  let scopeIdentifier = assignedIdentifiers[0];
-  let scopeDependency = instanceAndfunctionDependencies;
-
-  if (['identifier', 'member_expression'].includes(assignedNode.type)) {
-    if (scopeInstanceName && !_.startsWith(scopeIdentifier, 'this.')) {
-      localScopeVariables.push(scopeIdentifier);
-      scopeIdentifier = scopeInstanceName;
-    } else {
-      scopeDependency = _captureDependency(instanceAndfunctionDependencies, scopeIdentifier);
-    }
-  }
-
-  _walkAndBuildDependency(scopeIdentifier, children[2], requiredModuleDependencies, scopeDependency, level, localScopeVariables);
+  _walkAndBuildDependency(scopeInstanceName, children[2], requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables);
 }
 
 function _catchClauseHandler(scopeInstanceName, node, requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables) {
@@ -435,7 +434,7 @@ function _objectPairHandler(scopeInstanceName, node, requiredModuleDependencies,
     identifier = scopeInstanceName;
   }
 
-  _walkAndBuildDependency(identifier, node.children[2], requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables);
+  _walkAndBuildDependency(scopeInstanceName, node.children[2], requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables);
 }
 
 function _classDeclarationHandler(scopeInstanceName, node, requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables) {
@@ -615,7 +614,9 @@ function _objectPatternHandler(scopeInstanceName, node, requiredModuleDependenci
   const identifiers = [];
 
   if (requiredModuleDependencies[scopeInstanceName] || level === 0 || instanceAndfunctionDependencies.$name === 'default') {
-    // Top level object pattern is considered as dependency
+    // Possible cases:
+    // 1. Simple object declaration, such as { name1, name2 } to pass to function
+    // 2. Top level object pattern is considered as dependency
     // Object Pattern, such as:
     // const { fieldA, fieldB: aliasB } = topModule;
     // export const { name3, name3bar: bar } = o;
@@ -653,18 +654,22 @@ function _objectPatternHandler(scopeInstanceName, node, requiredModuleDependenci
         // { method1() {} }
         _walkAndBuildDependency(scopeInstanceName, child, requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables);
       } else if (child.type === 'pair') {
-        // On the right side of statement as object:
-        // { xxx: ... } }
+        // Simple object declaration or on the right side of statement as object:
+        // { xxx: ... }
         identifier = _oneChildrenOfType(child, 'property_identifier') || _oneChildrenOfType(child, 'private_property_identifier') || child.children[0];
         identifier = identifier.text;
         if (instanceAndfunctionDependencies.$type === 'array') {
           identifier = `[${instanceAndfunctionDependencies.$index}]${identifier}`;
         }
-        const dependency = _captureDependency(instanceAndfunctionDependencies, identifier);
+        if (scopeInstanceName) {
+          // The object is declared inside a function, its name should have the function name as prefix
+          identifier = scopeInstanceName + '$' + identifier;
+        }
+        const dependency = _captureDependency(instanceAndfunctionDependencies, identifier, child);
+        _setDependencyTypeBasedOnNodeType(dependency, child.children[2]);
 
         // Capture dependency in advance and so no need return the identifier
-        const valueIdentifiers = _walkAndBuildDependency(identifier, child.children[2], requiredModuleDependencies, dependency, level, localScopeVariables);
-        _captureDependencyWithScope(identifier, valueIdentifiers, dependency, child.children[2], level);
+        _walkAndBuildDependency(scopeInstanceName, child.children[2], requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables);
       }
 
       if (identifier) {

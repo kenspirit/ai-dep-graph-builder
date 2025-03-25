@@ -1,0 +1,46 @@
+{
+  "requiredModuleDependencies": {
+    "_": {
+      "isDefault": true,
+      "source": "lodash"
+    }
+  },
+  "instanceAndfunctionDependencies": {
+    "dependencies": [
+      {
+        "module": "$file",
+        "instanceName": "simpleExternal",
+        "type": "method",
+        "public": true,
+        "usage": "$property",
+        "sourceCode": "$SOURCE_CODE$",
+        "dependencies": [
+          {
+            "module": "lodash",
+            "instanceName": "uniq",
+            "type": "method",
+            "public": true,
+            "usage": "_.uniq(_.map([1, 2, 3], () => 1))",
+            "externalSource": {
+              "isDefault": true,
+              "source": "lodash"
+            },
+            "dependencies": []
+          },
+          {
+            "module": "lodash",
+            "instanceName": "map",
+            "type": "method",
+            "public": true,
+            "usage": "_.map([1, 2, 3], () => 1)",
+            "externalSource": {
+              "isDefault": true,
+              "source": "lodash"
+            },
+            "dependencies": []
+          }
+        ]
+      }
+    ]
+  }
+}

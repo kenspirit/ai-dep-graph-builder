@@ -1,0 +1,34 @@
+{
+  "requiredModuleDependencies": {
+    "_": {
+      "isDefault": true,
+      "source": "lodash"
+    }
+  },
+  "instanceAndfunctionDependencies": {
+    "dependencies": [
+      {
+        "module": "$file",
+        "instanceName": "simpleAssigment",
+        "type": "method",
+        "public": true,
+        "usage": "$property",
+        "sourceCode": "$SOURCE_CODE$",
+        "dependencies": [
+          {
+            "module": "lodash",
+            "instanceName": "uniqueId",
+            "type": "method",
+            "public": true,
+            "usage": "_.uniqueId('something')",
+            "externalSource": {
+              "isDefault": true,
+              "source": "lodash"
+            },
+            "dependencies": []
+          }
+        ]
+      }
+    ]
+  }
+}
