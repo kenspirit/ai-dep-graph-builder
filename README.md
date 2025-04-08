@@ -134,7 +134,7 @@ Some environment variables should be set before executing below script:
 
 ### Project Code Dependency Extraction
 
-For JavaScript project, invokes command `node repo-builders/repo-builder.js`.  
+For JavaScript project, invokes command `node repo-builders/javascript.js`.  
 For JAVA project, invokes command `node repo-builder.js`.  
   - `parsers/java.js` utilizes [LSP](https://microsoft.github.io/language-server-protocol/) besides AST.  You can start one using [Eclipse JDT](https://github.com/eclipse-jdtls/eclipse.jdt.ls).
 
