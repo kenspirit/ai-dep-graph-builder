@@ -209,9 +209,11 @@ function _convertInstanceAndFunctionDependencies(rootDir, systemModuleName, lang
       systemModule: dependency.module,
       microService: microService,
       type: isFunction ? 'Function' : (dependency.type === 'string' ? 'String' : 'Field'),
-      sourceCode: isFunction ? dependency.sourceCode : dependency.instanceName,
       dependencies: _convertInstanceAndFunctionDependencies(rootDir, systemModuleName, language, microService, moduleDependencyMap, dependency.dependencies)
     };
+    if (['Function', 'String'].includes(converted.type)) {
+      converted.sourceCode = dependency.sourceCode || dependency.instanceName;
+    }
 
     _setSystemModule(rootDir, converted, systemModuleName);
 

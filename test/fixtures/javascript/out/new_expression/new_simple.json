@@ -27,7 +27,7 @@
           },
           {
             "module": "this",
-            "instanceName": "getMcpServer$name",
+            "instanceName": "getMcpServer#name",
             "type": "string",
             "usage": "name: 'Code Dependency Retrieval'",
             "sourceCode": "'Code Dependency Retrieval'",
@@ -35,7 +35,7 @@
           },
           {
             "module": "this",
-            "instanceName": "getMcpServer$version",
+            "instanceName": "getMcpServer#version",
             "type": "string",
             "usage": "version: '1.0.0'",
             "sourceCode": "'1.0.0'",

@@ -28,12 +28,17 @@ nodeTypes.forEach((nodeType) => {
     }
 
     const code = fs.readFileSync(path.resolve(__dirname, `./fixtures/javascript/in/${nodeType}/${parseCase}`), 'utf-8');
+
     test(`Parsing : ${nodeType} - ${parseCase}`, () => {
       const result = parser.getDependencies('', code)
 
       _recursivelyReplaceMethodSourceCode(result.instanceAndfunctionDependencies)
 
-      const outputPath = path.resolve(__dirname, `./fixtures/javascript/out/${nodeType}/${parseCase.replace(/\.js/, '.json')}`);
+      const outputDir = path.resolve(__dirname, `./fixtures/javascript/out/${nodeType}`);
+      if (!fs.existsSync(outputDir)) {
+        fs.mkdirSync(outputDir, { recursive: true });
+      }
+      const outputPath = path.resolve(__dirname, `${outputDir}/${parseCase.replace(/\.js/, '.json')}`);
       if (!fs.existsSync(outputPath)) {
         fs.writeFileSync(outputPath, JSON.stringify(result, null, 2));
       }
