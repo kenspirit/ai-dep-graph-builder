@@ -1,0 +1,55 @@
+{
+  "requiredModuleDependencies": {
+    "_": {
+      "isDefault": true,
+      "source": "lodash"
+    }
+  },
+  "instanceAndfunctionDependencies": {
+    "dependencies": [
+      {
+        "module": "$file",
+        "instanceName": "memberProperty",
+        "type": "method",
+        "public": true,
+        "usage": "$property",
+        "sourceCode": "$SOURCE_CODE$",
+        "dependencies": [
+          {
+            "module": "lodash",
+            "instanceName": "pick",
+            "type": "method",
+            "public": true,
+            "usage": "_.pick(data.toJSON(), ['a', 'b', 'c'])",
+            "externalSource": {
+              "isDefault": true,
+              "source": "lodash"
+            },
+            "dependencies": []
+          },
+          {
+            "module": "string",
+            "instanceName": "'a'",
+            "type": "string",
+            "usage": "string",
+            "dependencies": []
+          },
+          {
+            "module": "string",
+            "instanceName": "'b'",
+            "type": "string",
+            "usage": "string",
+            "dependencies": []
+          },
+          {
+            "module": "string",
+            "instanceName": "'c'",
+            "type": "string",
+            "usage": "string",
+            "dependencies": []
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,4 +1,5 @@
 import _ from 'lodash';
+import path from 'path';
 import Parser from 'tree-sitter';
 import Java from 'tree-sitter-java';
 import fs from 'fs';
@@ -266,6 +267,7 @@ async function _getInvokeMethodSignatureThroughLSP(node, lastMethodInvocation = 
   const spec = await _getInvokeMethodSpecThroughLSP(node, lastMethodInvocation);
   const isConstructorInvocation = node.type === 'explicit_constructor_invocation';
   if (spec) {
+    console.info(`success to get signature through LSP server: ${node.text}`);
     return _compactMethodSignature(spec, isConstructorInvocation);
   }
 
@@ -1153,7 +1155,7 @@ class AstParser {
   // }
   async getDependencies(sourceFile, rawContent) {
     try {
-      filePath = `${this.rootDir}/${sourceFile}`
+      filePath = path.join(this.rootDir, sourceFile).replace(/\\/g, '/');
       const tree = this.parser.parse(rawContent);
       const rootNode = tree.rootNode;
       const requiredModuleDependencies = {};

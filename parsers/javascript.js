@@ -280,13 +280,15 @@ function _newExpressionHandler(scopeInstanceName, node, requiredModuleDependenci
 }
 
 function _callExpressionHandler(scopeInstanceName, node, requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables) {
-  const dependentIdentifer = _walkAndBuildDependency(scopeInstanceName, node.children[0], requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables)[0];
+  const dependentIdentifer = _walkAndBuildDependency(scopeInstanceName, node.children[0], requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables)[0] || '';
 
   // If first children is member expression, it's captured in instanceAndfunctionDependencies above already
   if (instanceAndfunctionDependencies[dependentIdentifer]) {
     instanceAndfunctionDependencies[dependentIdentifer].$usage = node.text;
+  } else if (dependentIdentifer.indexOf('.') === -1) {
+    // Not a member expression, then it's a function call
+    _captureDependencyWithScope(scopeInstanceName, dependentIdentifer, instanceAndfunctionDependencies, node, level);
   }
-  _captureDependencyWithScope(scopeInstanceName, dependentIdentifer, instanceAndfunctionDependencies, node, level);
 
   // Handle arguments
   _walkAndBuildDependency(scopeInstanceName || dependentIdentifer, node.children[1], requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables);
@@ -663,13 +665,18 @@ function _objectPatternHandler(scopeInstanceName, node, requiredModuleDependenci
         }
         if (scopeInstanceName) {
           // The object is declared inside a function, its name should have the function name as prefix
-          identifier = scopeInstanceName + '$' + identifier;
+          identifier = scopeInstanceName + '#' + identifier;
         }
         const dependency = _captureDependency(instanceAndfunctionDependencies, identifier, child);
         _setDependencyTypeBasedOnNodeType(dependency, child.children[2]);
 
         // Capture dependency in advance and so no need return the identifier
-        _walkAndBuildDependency(scopeInstanceName, child.children[2], requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables);
+        if (['arrow_function', 'function_expression'].includes(child.children[2].type)) {
+          _walkAndBuildDependency(identifier, child.children[2], requiredModuleDependencies, dependency, level, localScopeVariables);
+          dependency.$sourceCode = child.children[2].text;
+        } else {
+          _walkAndBuildDependency(scopeInstanceName, child.children[2], requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables);
+        }
       }
 
       if (identifier) {
@@ -761,7 +768,7 @@ function _captureDependency(instanceAndfunctionDependencies, instanceName, node)
 
 function _walkAndBuildDependency(scopeInstanceName, node, requiredModuleDependencies = {}, instanceAndfunctionDependencies = {}, level = 0, localScopeVariables = ['constructor', 'console']) {
   if (!node) {
-    return;
+    return [];
   }
 
   // console.log(`scope in ${scopeInstanceName} - ${node.type} ` + node.text + ' children: ', node.children);

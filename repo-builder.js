@@ -50,8 +50,12 @@ export class RepoBuilder {
   }
 
   async persistVertex(vertex) {
-    console.log(`Persisting vertex: ${vertex.name} with children: ${vertex.dependencies?.length || 0}`);
-    await this.builder.createVertex(vertex);
+    try {
+      await this.builder.createVertex(vertex);
+    } catch (e) {
+      console.error('Error while persisting vertex:', vertex);
+      throw e;
+    }
   }
 
   async getAstParser(suffix) {
@@ -87,9 +91,12 @@ export class RepoBuilder {
 
       console.log(`========== Dependencies built for ${filePath} ===========\n`);
       try {
-        const relativePath = filePath.replace(rootDir + path.sep, '').replace(/\\/g, '/');
+        let relativePath = filePath.replace(rootDir + path.sep, '').replace(/\\/g, '/');
+        if (!relativePath.startsWith('/')) {
+          relativePath = `/${relativePath}`;
+        }
         const { requiredModuleDependencies, instanceAndfunctionDependencies } = await astParser.getDependencies(relativePath, rawContent);
-        const fileName = instanceAndfunctionDependencies.$name || relativePath;
+        let fileName = instanceAndfunctionDependencies.$name || relativePath;
 
         const moduleDependencies = this.convertGraphComponents(fileName, language, this.microService, requiredModuleDependencies, instanceAndfunctionDependencies.dependencies);
 

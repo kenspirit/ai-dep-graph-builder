@@ -8,7 +8,7 @@ if exist "arcadedb" (
     echo Downloading ArcadeDB and extracting...
 
     REM Download the ArcadeDB archive using curl
-    curl -L -o %TEMP%\arcadedb.tar.gz https://github.com/ArcadeData/arcadedb/releases/download/25.1.1/arcadedb-25.1.1.tar.gz
+    curl -L -o %TEMP%\arcadedb.tar.gz https://github.com/ArcadeData/arcadedb/releases/download/25.3.2/arcadedb-25.3.2.tar.gz
 
     REM Create the target directory
     md arcadedb >nul 2>&1

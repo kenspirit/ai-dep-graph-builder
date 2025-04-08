@@ -1,0 +1,76 @@
+{
+  "requiredModuleDependencies": {},
+  "instanceAndfunctionDependencies": {
+    "dependencies": [
+      {
+        "module": "$file",
+        "instanceName": "_request",
+        "type": "method",
+        "usage": "method",
+        "sourceCode": "$SOURCE_CODE$",
+        "dependencies": []
+      },
+      {
+        "module": "$file",
+        "instanceName": "getToken",
+        "type": "method",
+        "public": true,
+        "usage": "$property",
+        "sourceCode": "$SOURCE_CODE$",
+        "dependencies": [
+          {
+            "module": "this",
+            "instanceName": "_request",
+            "type": "method",
+            "usage": "_request({\r\n    method: 'get',\r\n    url: 'token_url',\r\n    params: { userId, type: opts.type },\r\n    headers: opts.headers\r\n  })",
+            "dependencies": []
+          },
+          {
+            "module": "this",
+            "instanceName": "getToken$method",
+            "type": "string",
+            "usage": "method: 'get'",
+            "sourceCode": "'get'",
+            "dependencies": []
+          },
+          {
+            "module": "this",
+            "instanceName": "getToken$url",
+            "type": "string",
+            "usage": "url: 'token_url'",
+            "sourceCode": "'token_url'",
+            "dependencies": []
+          },
+          {
+            "module": "this",
+            "instanceName": "getToken$params",
+            "type": "field",
+            "usage": "params: { userId, type: opts.type }",
+            "dependencies": []
+          },
+          {
+            "module": "this",
+            "instanceName": "userId",
+            "type": "field",
+            "usage": "$property",
+            "dependencies": []
+          },
+          {
+            "module": "this",
+            "instanceName": "getToken$type",
+            "type": "field",
+            "usage": "type: opts.type",
+            "dependencies": []
+          },
+          {
+            "module": "this",
+            "instanceName": "getToken$headers",
+            "type": "field",
+            "usage": "headers: opts.headers",
+            "dependencies": []
+          }
+        ]
+      }
+    ]
+  }
+}

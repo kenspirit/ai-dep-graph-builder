@@ -1,0 +1,26 @@
+{
+  "verbose": true,
+  "moduleFileExtensions": [
+    "js",
+    "json"
+  ],
+  "testEnvironment": "node",
+  "testEnvironmentOptions": {
+    "customExportConditions": [
+      "node",
+      "node-addons"
+    ]
+  },
+  "testRegex": "(.\\/*\\/.*|(\\.|\\/))(spec)\\.(js)+$",
+  "testPathIgnorePatterns": [
+    "<rootDir>/dist/",
+    "<rootDir>/node_modules/",
+    "<rootDir>/sample-project/"
+  ],
+  "transform": {
+    "^.+\\.js$": "babel-jest"
+  },
+  "reporters": [
+    "default"
+  ]
+}
