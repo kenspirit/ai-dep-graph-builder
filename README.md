@@ -183,7 +183,9 @@ Vertex Schema
   systemModule: '', // Node.js package name, JavaScript file name, Java Full-qualified Name, such as `user/user.controller.js`, `com.xxx.user.UserController.java`
   sourceCode: '', // Source Code of Function, mainly
   fileName: '', // Most of the time, it can possibly same as systemModule.  While say for JAVA, it could be different.
-  language: '' // java, javascript, yml etc.
+  language: '', // java, javascript, yml etc.
+  startRow: 0, // starting row number of Function type Component
+  endRow: 0, // end row number of Function type Component
 }
 ```
 

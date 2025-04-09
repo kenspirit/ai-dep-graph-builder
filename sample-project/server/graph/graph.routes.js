@@ -22,6 +22,15 @@ export default {
       validators: {
         query: VERTEX_QUERY_SCHEMA
       }
+    },
+    {
+      method: 'get',
+      path: '/all',
+      action: [graphController.getAll],
+      description: 'Load all affected of a given vertex',
+      validators: {
+        query: VERTEX_QUERY_SCHEMA
+      }
     }
   ]
 };

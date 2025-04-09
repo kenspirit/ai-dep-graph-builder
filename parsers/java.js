@@ -100,6 +100,8 @@ async function _functionNodeHander(scopeInstanceName, node, requiredModuleDepend
     dependency = _captureDependency(instanceAndfunctionDependencies, identifier);
     dependency.$sourceCode = node.text;
     dependency.$type = node.type === 'constructor_declaration' ? 'constructor' : 'method';
+    dependency.$startRow = node.startPosition.row + 1; // Actual # of line in the file, not 0-based
+    dependency.$endRow = node.endPosition.row + 1;
     _setVisibility(dependency, node, scopeInstanceName);
   }
 
@@ -777,6 +779,8 @@ async function _classDeclarationHandler(scopeInstanceName, node, requiredModuleD
     methodDependency.$type = 'method';
     methodDependency.$shortName = methodSignature.substring(methodSignature.lastIndexOf('.') + 1);
     methodDependency.$returnType = returnType;
+    methodDependency.$startRow = child.startPosition.row + 1; // Actual # of line in the file, not 0-based
+    methodDependency.$endRow = child.endPosition.row + 1;
     _setVisibility(methodDependency, child, className);
 
     methodDependencies.push(methodDependency);
@@ -1054,6 +1058,8 @@ function _convertDependencyStructure(inspectedDependency, requiredModuleDependen
     visibility: inspectedDependency.$visibility,
     type: _nodeType(inspectedDependency),
     module,
+    startRow: inspectedDependency.$startRow,
+    endRow: inspectedDependency.$endRow,
     dependencies: []
   };
 

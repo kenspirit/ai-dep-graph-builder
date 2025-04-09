@@ -1,24 +1,40 @@
 import * as vscode from 'vscode';
 import { getMcpClient } from './mcpClient';
 
-async function getSelectedFunction() {
-  const editor = vscode.window.activeTextEditor;
+async function getCurrentFileNameAndSelectedText(editor: vscode.TextEditor): Promise<{ language: string; fileName: string; sourceCode: string }> {
+  const language = editor.document.languageId;
+  const pathComponents = editor.document.uri.path.split('/');
+  let fileName = pathComponents.pop() || '';
 
-  if (editor) {
-    const language = editor.document.languageId;
-    const pathComponents = editor.document.uri.path.split('/');
-    let fileName = pathComponents.pop() || '';
+  const selection = editor.selection;
+  const selectedText = editor.document.getText(selection);
 
+  if (language === 'java') {
+    fileName = fileName.replace('.java', '');
+  }
 
-    const selection = editor.selection;
-    const selectedText = editor.document.getText(selection);
+  return { language, fileName, sourceCode: selectedText };
+}
+
+async function getCurrentRowNumber(editor: vscode.TextEditor) {
+  const selection = editor.selection;
+  const rowNumber = selection.start.line + 1;
+
+  return rowNumber;
+}
+
+async function getSelectedFunction(editor: vscode.TextEditor) {
+  const selectedText = await getCurrentFileNameAndSelectedText(editor);
+
+  if (selectedText) {
+    const language = selectedText.language;
     const { AstParser } = await import(`./shared/parsers/${language}`);
     const parser = new AstParser();
-    let functionName = parser.extractFunctionSignature(selectedText)
+    let functionName = parser.extractFunctionSignature(selectedText);
 
     if (language === 'java') {
-      fileName = fileName.replace('.java', '');
-      functionName = fileName + '.' + functionName;
+      selectedText.fileName = selectedText.fileName.replace('.java', '');
+      functionName = selectedText.fileName + '.' + functionName;
     }
 
     if (!functionName) {
@@ -26,7 +42,7 @@ async function getSelectedFunction() {
       return;
     }
 
-    return { functionName, language, fileName, sourceCode: selectedText };
+    return selectedText;
   }
 }
 
@@ -41,6 +57,19 @@ async function findComponents(mcpClient: any, functionObj: any) {
       name: functionObj.functionName,
       language: functionObj.language,
       systemModule: functionObj.fileName,
+      format: 'json'
+    }
+  }) as MCPResponse;
+
+  return JSON.parse(res.content[0].text);
+}
+
+async function findComponentByRowNumber(mcpClient: any, fileName: any, rowNumber: any) {
+  const res = await mcpClient.callTool({
+    name: "findComponentByRowNumber",
+    arguments: {
+      rowNumber,
+      systemModule: fileName,
       format: 'json'
     }
   }) as MCPResponse;
@@ -173,14 +202,20 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(analyzeCodeDependencyDisposable);
 
   const handler: vscode.ChatRequestHandler = async (request: vscode.ChatRequest, context: vscode.ChatContext, stream: vscode.ChatResponseStream, token: vscode.CancellationToken) => {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) {
+      stream.markdown('No active editor found.');
+      return;
+    }
+
     if (request.command == 'dependency') {
-      const functionObj = await getSelectedFunction();
-      if (!functionObj) {
-        vscode.window.showInformationMessage('No function selected.');
+      const selectedText = await getCurrentFileNameAndSelectedText(editor);
+      const rowNumber = await getCurrentRowNumber(editor);
+      if (rowNumber === -1) {
+        vscode.window.showInformationMessage('Please focus on the code you want to check');
         return;
       }
 
-      const language = functionObj.language;
       const mcpClient = await getMcpClient();
       if (!mcpClient) {
         vscode.window.showErrorMessage('MCP Client not available.');
@@ -190,50 +225,18 @@ export function activate(context: vscode.ExtensionContext) {
       stream.progress('Fetching components ...');
 
       let prompt = request.prompt || 'all';
-      let foundComponents;
-      let index = -1;
-
-      if (!isNaN(Number(prompt))) {
-        // Index of the components matched in last search
-        index = Number(prompt);
-        const lastConversation = context.history[context.history.length - 1] as vscode.ChatResponseTurn;
-        const lastRequest = context.history[context.history.length - 2] as vscode.ChatRequestTurn;
-        prompt = lastRequest.prompt;
-
-        const responseMD = lastConversation.response[0] as vscode.ChatResponseMarkdownPart;
-        const lastMatched = extractJsonCodeBlock(responseMD.value.value);
-        if (!lastMatched) {
-          // Find matched components again
-          foundComponents = await findComponents(mcpClient, functionObj);
-        } else {
-          foundComponents = JSON.parse(lastMatched);
-        }
-      } else {
-        foundComponents = await findComponents(mcpClient, functionObj);
-      }
+      const component = await findComponentByRowNumber(mcpClient, selectedText?.fileName, rowNumber);
 
       let dependencies = '';
 
-      if (foundComponents.length === 0) { 
+      if (!component) { 
         stream.markdown('No components found');
         return;
-      } else if ((index >= 0 && foundComponents[index]) || foundComponents.length === 1) {
+      } else {
         stream.progress('Fetching dependencies ...');
 
-        const component = foundComponents[index] || foundComponents[0];
-        dependencies = await obtainDependencies(mcpClient, prompt, language, component.name, component.microService, component.systemModule);
+        dependencies = await obtainDependencies(mcpClient, prompt, selectedText.language, component.name, component.microService, component.systemModule);
         stream.markdown(dependencies);
-      } else {
-        stream.markdown('Multiple components found. Please select one by index (0-based):\n');
-        stream.markdown('```json\n');
-        stream.markdown(JSON.stringify(foundComponents.map((c: any) => {
-          return {
-            name: c.name,
-            microService: c.microService,
-            systemModule: c.systemModule
-          }
-        }), null, 2) + '\n');
-        stream.markdown('```\n');
       }
     }
 

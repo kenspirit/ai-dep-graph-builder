@@ -38,6 +38,18 @@
           </el-form-item>
         </el-col>
       </el-row>
+      <el-row>
+        <el-col :span="6">
+          <el-form-item label="Dependency Type">
+            <el-input v-model="form.dependencyType" style="width: 240px" placeholder="Function" />
+          </el-form-item>
+        </el-col>
+        <el-col :span="6">
+          <el-form-item label="Depth">
+            <el-input-number v-model="form.depth" :min="0" :step="1" style="width: 240px" placeholder="0 means unlimited" />
+          </el-form-item>
+        </el-col>
+      </el-row>
       <el-form-item>
         <el-button type="primary" @click="retrieve">Retrieve</el-button>
       </el-form-item>
@@ -117,7 +129,9 @@ const form = reactive({
   category: 'component',
   microService: 'dep-graph-builder',
   systemModule: '/graph/graph.service.js',
-  name: 'getAncestors'
+  name: 'getAncestors',
+  dependencyType: 'Function',
+  depth: 0
 })
 
 const graphData = {
@@ -142,7 +156,7 @@ function setDefault(direction) {
 }
 
 async function retrieve() {
-  const response = await axios.get(`/api/graph/${form.direction}?category=${form.category}&name=${encodeURIComponent(form.name)}&systemModule=${encodeURIComponent(form.systemModule)}&microService=${encodeURIComponent(form.microService)}`)
+  const response = await axios.get(`/api/graph/${form.direction}?category=${form.category}&name=${encodeURIComponent(form.name)}&systemModule=${encodeURIComponent(form.systemModule)}&microService=${encodeURIComponent(form.microService)}&dependencyType=${encodeURIComponent(form.dependencyType)}&depth=${form.depth}`)
   const newOptions = getTreeOptions(response.data, form.direction);
   // const newOptions = getSankeyOptions(response.data);
 

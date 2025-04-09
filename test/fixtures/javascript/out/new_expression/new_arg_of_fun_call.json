@@ -17,6 +17,8 @@
         "public": true,
         "usage": "$property",
         "sourceCode": "$SOURCE_CODE$",
+        "startRow": 4,
+        "endRow": 9,
         "dependencies": [
           {
             "module": "@modelcontextprotocol/sdk/server/mcp.js",

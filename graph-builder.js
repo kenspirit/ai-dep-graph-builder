@@ -15,6 +15,8 @@ const VERTEX_SCHEMA = joi.object({
   visibility: joi.string(),
   public: joi.boolean().default(false),
   description: joi.string().allow('', null).default(''),
+  startRow: joi.number().integer(),
+  endRow: joi.number().integer(),
   dependencies: joi.array().items(joi.link('#vertex')),
   sourceCode: joi.string().when('category', {
     is: 'component',
@@ -105,9 +107,10 @@ class GraphBuilder {
       if (existingVertex) {
         existingVertex.description = vertex.description || existingVertex.description;
         if (vertex.category === 'component') {
-          if (vertex.sourceCode) {
-            existingVertex.sourceCode = vertex.sourceCode;
-          }
+          existingVertex.sourceCode = vertex.sourceCode || existingVertex.sourceCode;
+          existingVertex.startRow = vertex.startRow || existingVertex.startRow;
+          existingVertex.endRow = vertex.endRow || existingVertex.endRow;
+
           await this.connector.updateVertex(existingVertex, sessionId);
         } else if (vertex.category === 'systemModule') {
           existingVertex.businessModules = vertex.businessModules;
@@ -194,11 +197,15 @@ class GraphBuilder {
     return this.connector.getComponentByNameAndLanguage(name, language, systemModule);
   }
 
+  async getComponentByRowNumber(systemModule, rowNumber) {
+    return this.connector.getComponentByRowNumber(systemModule, rowNumber);
+  }
+
   async getVerticesByTypesWithDescription(category, types) {
     return this.connector.getVerticesByTypesWithDescription(category, types);
   }
 
-  async getDescendants(vertex, type, hasSourceCode) {
+  async getDescendants(vertex, type, hasSourceCode, depth = 0) {
     // Format should be as below and the sub-paths, such as [1, 2], should not be included.
     // The paths should be the vertex identifiers.
     // [
@@ -206,11 +213,14 @@ class GraphBuilder {
     //   { paths: [1, 2, 4] },
     //   { paths: [1, 5, 6] }
     // ]
-    return this.connector.getDescendants(vertex, type, hasSourceCode);
+
+    // If depth is 0, it means all descendants should be retrieved.
+    // If depth is 1, it means only direct children should be retrieved.
+    return this.connector.getDescendants(vertex, type, hasSourceCode, depth);
   }
 
-  async getAncestors(vertex, type, hasSourceCode) {
-    return this.connector.getAncestors(vertex, type, hasSourceCode);
+  async getAncestors(vertex, type, hasSourceCode, depth = 0) {
+    return this.connector.getAncestors(vertex, type, hasSourceCode, depth);
   }
 }
 

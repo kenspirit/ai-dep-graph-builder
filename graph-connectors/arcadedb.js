@@ -53,6 +53,8 @@ CREATE PROPERTY Component.systemModule IF NOT EXISTS STRING;
 CREATE PROPERTY Component.sourceCode IF NOT EXISTS STRING;
 CREATE PROPERTY Component.fileName IF NOT EXISTS STRING;
 CREATE PROPERTY Component.language IF NOT EXISTS STRING;
+CREATE PROPERTY Component.startRow IF NOT EXISTS INTEGER;
+CREATE PROPERTY Component.endRow IF NOT EXISTS INTEGER;
 
 CREATE INDEX IF NOT EXISTS ON Component (microService, systemModule, name) UNIQUE;
 CREATE INDEX IF NOT EXISTS ON SystemModule (microService, name) UNIQUE;`;
@@ -132,7 +134,9 @@ CREATE INDEX IF NOT EXISTS ON SystemModule (microService, name) UNIQUE;`;
       case 'systemModule':
         return `CREATE VERTEX SystemModule SET name = :name, type = :type, businessModules = :businessModules, microService = :microService, fileName = :fileName, language = :language;`;
       case 'component':
-        return `CREATE VERTEX Component SET name = :name, type = :type, microService = :microService, systemModule = :systemModule, sourceCode = :sourceCode, description = :description, public = :public, visibility = :visibility, fileName = :fileName, language = :language;`;
+        return `CREATE VERTEX Component SET name = :name, type = :type, microService = :microService, systemModule = :systemModule, sourceCode = :sourceCode,
+ description = :description, public = :public, visibility = :visibility, fileName = :fileName, language = :language,
+ startRow = :startRow, endRow = :endRow;`;
     }
   }
 
@@ -145,7 +149,9 @@ CREATE INDEX IF NOT EXISTS ON SystemModule (microService, name) UNIQUE;`;
   _getVertexUpdateCommand(vertex) {
     switch (vertex.category) {
       case 'component':
-        return `UPDATE Component SET sourceCode = :sourceCode, description = :description, public = :public, visibility = :visibility, fileName = :fileName, language = :language WHERE @rid = ${vertex['@rid']};`;
+        return `UPDATE Component SET sourceCode = :sourceCode, description = :description, public = :public, visibility = :visibility,
+  fileName = :fileName, language = :language, startRow = :startRow, endRow = :endRow
+  WHERE @rid = ${vertex['@rid']};`;
       case 'systemModule':
         return `UPDATE SystemModule SET businessModules = :businessModules, fileName = :fileName, language = :language WHERE @rid = ${vertex['@rid']};`;
     }
@@ -186,6 +192,14 @@ CREATE INDEX IF NOT EXISTS ON SystemModule (microService, name) UNIQUE;`;
       sql += ` AND systemModule LIKE :systemModule`;
       params.systemModule = `%${systemModule}%`;
     }
+
+    const result = await this._dbCommand('query', undefined, sql, params);
+    return result.map(assignCategory);
+  }
+
+  async getComponentByRowNumber(systemModule, rowNumber) {
+    const params = { rowNumber, systemModule: `%${systemModule}%` };
+    const sql = `SELECT FROM Component WHERE systemModule LIKE :systemModule AND startRow <= :rowNumber AND endRow >= :rowNumber`;
 
     const result = await this._dbCommand('query', undefined, sql, params);
     return result.map(assignCategory);
@@ -256,7 +270,7 @@ CREATE INDEX IF NOT EXISTS ON SystemModule (microService, name) UNIQUE;`;
     return pathA.every((vertex, index) => vertex === pathB[index]);
   }
 
-  _removeSubPaths(result) {
+  _removeSubPaths(result, depth) {
     // Sample data
     // [
     //   { "result": ["#105:0"] },
@@ -268,6 +282,13 @@ CREATE INDEX IF NOT EXISTS ON SystemModule (microService, name) UNIQUE;`;
 
     // Sort the result by the length of the path
     result.sort((a, b) => a.result.length - b.result.length);
+    if (depth > 0) {
+      result = result.map(path => {
+        return {
+          result: path.result.slice(0, depth + 1)
+        };
+      });
+    }
 
     // Remove the sub-paths
     const uniquePaths = [];
@@ -280,20 +301,22 @@ CREATE INDEX IF NOT EXISTS ON SystemModule (microService, name) UNIQUE;`;
     return Array.from(uniquePaths).map(path => ({ paths: path }));
   }
 
-  async getDescendants(vertex, type, hasSourceCode) {
+  async getDescendants(vertex, type, hasSourceCode, depth = 0) {
     const typeFilter = type ? `.has('type', '${type}')` : '';
     const sourceCodeFilter = hasSourceCode ? `.has('sourceCode', P.neq(null)).has('sourceCode', P.neq(''))` : '';
-    const query = `${this._getGremlinVertexQuery(vertex)}.out('Uses')${typeFilter}${sourceCodeFilter}.emit().repeat(__.out('Uses')${typeFilter}${sourceCodeFilter}).path().dedup()`;
+    const depthLimit = depth > 0 ? `.times(${depth})` : '';
+    const query = `${this._getGremlinVertexQuery(vertex)}.out('Uses')${typeFilter}${sourceCodeFilter}.emit().repeat(__.out('Uses')${typeFilter}${sourceCodeFilter})${depthLimit}.path().dedup()`;
     const result = await this._dbCommand('query', undefined, query, undefined, 'gremlin');
-    return this._removeSubPaths(result);
+    return this._removeSubPaths(result, depth);
   }
 
-  async getAncestors(vertex, type, hasSourceCode) {
+  async getAncestors(vertex, type, hasSourceCode, depth = 0) {
     const typeFilter = type ? `.has('type', '${type}')` : '';
     const sourceCodeFilter = hasSourceCode ? `.has('sourceCode', P.neq(null)).has('sourceCode', P.neq(''))` : '';
-    const query = `${this._getGremlinVertexQuery(vertex)}.in('Uses')${typeFilter}${sourceCodeFilter}.emit().repeat(__.in('Uses')${typeFilter}${sourceCodeFilter}).path().dedup()`;
+    const depthLimit = depth > 0 ? `.times(${depth})` : '';
+    const query = `${this._getGremlinVertexQuery(vertex)}.in('Uses')${typeFilter}${sourceCodeFilter}.emit().repeat(__.in('Uses')${typeFilter}${sourceCodeFilter})${depthLimit}.path().dedup()`;
     const result = await this._dbCommand('query', undefined, query, undefined, 'gremlin');
-    return this._removeSubPaths(result);
+    return this._removeSubPaths(result, depth);
   }
 }
 

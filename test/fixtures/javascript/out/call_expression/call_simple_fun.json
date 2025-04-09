@@ -8,6 +8,8 @@
         "type": "method",
         "usage": "method",
         "sourceCode": "$SOURCE_CODE$",
+        "startRow": 1,
+        "endRow": 3,
         "dependencies": []
       },
       {
@@ -17,6 +19,8 @@
         "public": true,
         "usage": "$property",
         "sourceCode": "$SOURCE_CODE$",
+        "startRow": 5,
+        "endRow": 7,
         "dependencies": [
           {
             "module": "this",

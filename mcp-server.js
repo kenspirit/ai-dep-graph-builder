@@ -3,6 +3,7 @@ import config from './sample.config.js';
 import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
+import fs from 'fs';
 
 const graphBuilder = new GraphBuilder(config.graph.type, config.graph.connectionOptions);
 
@@ -40,6 +41,38 @@ ${vertex.sourceCode}
     content: [{ type: 'text', text: String(result) }]
   };
 }
+
+server.tool('findComponentByRowNumber',
+  `Find the code component based on system module and row number in it.`,
+  {
+    systemModule: z.string().optional().describe('Name of the module.  Relative file path could be used.  Partial match is supported.'),
+    rowNumber: z.number().int().describe('Row number of the component.'),
+    format: z.enum(['json', 'md']).default('md').describe('Format of the result.  json or md.'),
+  },
+  async ({ rowNumber, systemModule, format }) => {
+    try {
+      const vertices = await graphBuilder.getComponentByRowNumber(systemModule, rowNumber);
+
+      if (vertices.length === 0) {
+        return {
+          content: [{ type: 'text', text: format === 'json' ? '[]' : 'No related code components are found.' }]
+        };
+      }
+
+      const vertex = vertices[0];
+      const result = `\`${vertex.name}\` in system module: \`${vertex.systemModule}\` of microservice: \`${vertex.microService}\``;
+
+      return {
+        content: [{ type: 'text', text: format === 'json' ? JSON.stringify(vertex) : `Below code component is found.\n\n${result}` }]
+      };
+    } catch (error) {
+      console.error(error);
+      return {
+        content: [{ type: 'text', text: error.message || 'Error' }]
+      };
+    }
+  }
+);
 
 server.tool('listComponents',
   `Find all code components based on name and implemented language.`,
@@ -83,13 +116,14 @@ If interface of the provided component is changed, the upstream components need 
     microService: z.string().describe('Name of the microservice.  Project root folder name could be used.'),
     systemModule: z.string().describe('Name of the module.  Relative file path could be used.'),
     sourceCode: z.string().optional().describe('Source code of the provided component if changed.'),
+    depth: z.number().int().default(0).describe('Depth of the upstream dependencies.  0 means all upstream dependencies.'),
     dependencyType: z.string().default('Function').describe('Type of the dependency.  Function, Field, or others.'),
     hasSourceCode: z.coerce.boolean().default(true).describe('Whether the dependent component has source code or not.  Normally set to true to exclude external libraries.'),
   },
   async (vertex) => {
     try {
       vertex.category = 'component';
-      const ancestors = await graphBuilder.getAncestors(vertex, vertex.dependencyType, vertex.hasSourceCode);
+      const ancestors = await graphBuilder.getAncestors(vertex, vertex.dependencyType, vertex.hasSourceCode, vertex.depth);
 
       return _formatResult(ancestors);
     } catch (error) {
@@ -109,13 +143,14 @@ If interface of the provided component is NOT changed, only the implementation i
     microService: z.string().describe('Name of the microservice.  Project root folder name could be used.'),
     systemModule: z.string().describe('Name of the module.  Relative file path could be used.'),
     sourceCode: z.string().optional().describe('Source code of the provided component if changed.'),
+    depth: z.number().int().default(0).describe('Depth of the downstream dependencies.  0 means all downstream dependencies.'),
     dependencyType: z.string().default('Function').describe('Type of the dependency.  Function, Field, or others.'),
     hasSourceCode: z.coerce.boolean().default(true).describe('Whether the dependent component has source code or not.  Normally set to true to exclude external libraries.'),
   },
   async (vertex) => {
     try {
       vertex.category = 'component';
-      const descendants = await graphBuilder.getDescendants(vertex, vertex.dependencyType, vertex.hasSourceCode);
+      const descendants = await graphBuilder.getDescendants(vertex, vertex.dependencyType, vertex.hasSourceCode, vertex.depth);
 
       return _formatResult(descendants);
     } catch (error) {
@@ -134,17 +169,20 @@ server.tool('listAllDependencies',
     microService: z.string().describe('Name of the microservice.  Project root folder name could be used.'),
     systemModule: z.string().describe('Name of the module.  Relative file path could be used.'),
     sourceCode: z.string().optional().describe('Source code of the provided component if changed.'),
+    depth: z.number().int().default(0).describe('Depth of the upstream & downstream dependencies.  0 means all dependencies.'),
     dependencyType: z.string().default('Function').describe('Type of the dependency.  Function, Field, or others.'),
     hasSourceCode: z.coerce.boolean().default(true).describe('Whether the dependent component has source code or not.  Normally set to true to exclude external libraries.'),
   },
   async (vertex) => {
+    fs.appendFileSync('mcp.log', JSON.stringify(vertex) + '\n');
     try {
       vertex.category = 'component';
-      const descendants = await graphBuilder.getDescendants(vertex, vertex.dependencyType, vertex.hasSourceCode);
-      const ancestors = await graphBuilder.getAncestors(vertex, vertex.dependencyType, vertex.hasSourceCode);
-
+      const descendants = await graphBuilder.getDescendants(vertex, vertex.dependencyType, vertex.hasSourceCode, vertex.depth);
+      const ancestors = await graphBuilder.getAncestors(vertex, vertex.dependencyType, vertex.hasSourceCode, vertex.depth);
+      fs.appendFileSync('mcp.log', 'Before responsing result.\n');
       return _formatResult(ancestors.concat(descendants));
     } catch (error) {
+      fs.appendFileSync('mcp.log', JSON.stringify(error) + '\n');
       console.error(error);
       return {
         content: [{ type: 'text', text: error.message || 'Error' }]

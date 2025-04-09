@@ -1,16 +1,18 @@
 {
+  "requiredModuleDependencies": {},
   "instanceAndfunctionDependencies": {
     "dependencies": [
       {
-        "dependencies": [],
-        "instanceName": "simpleFunction",
         "module": "$file",
-        "public": true,
-        "sourceCode": "$SOURCE_CODE$",
+        "instanceName": "simpleFunction",
         "type": "method",
-        "usage": "$property"
+        "public": true,
+        "usage": "$property",
+        "sourceCode": "$SOURCE_CODE$",
+        "startRow": 1,
+        "endRow": 3,
+        "dependencies": []
       }
     ]
-  },
-  "requiredModuleDependencies": {}
+  }
 }

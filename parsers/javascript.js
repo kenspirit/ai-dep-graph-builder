@@ -248,6 +248,8 @@ function _functionNodeHander(scopeInstanceName, node, requiredModuleDependencies
     dependency = _captureDependency(instanceAndfunctionDependencies, identifier);
     dependency.$sourceCode = node.text;
     dependency.$type = 'method';
+    dependency.$startRow = node.startPosition.row + 1; // Actual # of line in the file, not 0-based
+    dependency.$endRow = node.endPosition.row + 1;
   }
 
   _walkAndBuildDependency(identifier || scopeInstanceName, _oneChildrenOfType(node, 'statement_block'), requiredModuleDependencies, dependency, level, funArgIdentifiers.concat(localScopeVariables));
@@ -869,6 +871,8 @@ function _convertDependencyStructure(node, requiredModuleDependencies, instanceA
     public: node.$public,
     usage,
     sourceCode: node.$sourceCode,
+    startRow: node.$startRow,
+    endRow: node.$endRow,
     externalSource,
     dependencies: []
   };

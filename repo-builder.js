@@ -127,6 +127,8 @@ export class RepoBuilder {
         name: dependency.instanceName,
         fileName,
         systemModule: dependency.module,
+        startRow: dependency.startRow,
+        endRow: dependency.endRow,
         microService: microService,
         type: isFunction ? 'Function' : 'Field',
         sourceCode: isFunction ? dependency.sourceCode : '',

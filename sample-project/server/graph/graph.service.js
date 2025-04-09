@@ -51,19 +51,19 @@ async function _massageResult(result) {
   return { vertices, links, categories };
 }
 
-async function getDescendants(vertex) {
-  const result = await graphBuilder.getDescendants(vertex);
+async function getDescendants(vertex, dependencyType = 'Function', hasSourceCode = true, depth = 0) {
+  const result = await graphBuilder.getDescendants(vertex, dependencyType, hasSourceCode, depth);
   return _massageResult(result);
 }
 
-async function getAncestors(vertex) {
-  const result = await graphBuilder.getAncestors(vertex);
+async function getAncestors(vertex, dependencyType = 'Function', hasSourceCode = true, depth = 0) {
+  const result = await graphBuilder.getAncestors(vertex, dependencyType, hasSourceCode, depth);
   return _massageResult(result);
 }
 
-async function getAllAffected(vertex) {
-  const descendants = await graphBuilder.getDescendants(vertex);
-  const ancestors = await graphBuilder.getAncestors(vertex);
+async function getAllAffected(vertex, dependencyType = 'Function', hasSourceCode = true, depth = 0) {
+  const descendants = await graphBuilder.getDescendants(vertex, dependencyType, hasSourceCode, depth);
+  const ancestors = await graphBuilder.getAncestors(vertex, dependencyType, hasSourceCode, depth);
   return _massageResult(ancestors.concat(descendants));
 }
 
