@@ -1,13 +1,13 @@
 <template>
 
-  <div style="width: 1400px;">
+  <div style="width: 1800px;">
     <h1>Code Dependency</h1>
 
     <el-form :model="form" label-width="auto" style="width: 100%">
       <el-row>
         <el-col :span="24">
           <el-form-item label="Direction">
-            <el-radio-group v-model="form.direction" @change="setDefault">
+            <el-radio-group v-model="form.direction">
               <el-radio value="descendants">Descendants</el-radio>
               <el-radio value="ancestors">Ancestors</el-radio>
             </el-radio-group>
@@ -24,7 +24,7 @@
         </el-col>
         <el-col :span="6">
           <el-form-item label="Micro-Service">
-            <el-input v-model="form.microService" style="width: 240px" placeholder="Micro-Service" readonly />
+            <el-input v-model="form.microService" style="width: 240px" placeholder="Micro-Service" />
           </el-form-item>
         </el-col>
         <el-col :span="6">
@@ -44,10 +44,10 @@
     </el-form>
 
     <el-row>
-      <el-col :span="12">
+      <el-col :span="24">
         <v-chart :option="graphOptions" style="width: 100%; height: 500px;" />
       </el-col>
-      <el-col :span="1"></el-col>
+      <!-- <el-col :span="1"></el-col>
       <el-col :span="11">
         <el-scrollbar height="400px">
           <el-card v-for="(c, index) in conversations" :key="index" style="margin-bottom: 10px">
@@ -56,7 +56,6 @@
                 <span style="font-weight: bold;">{{ capitalize(c.role) }}</span>
               </div>
             </template>
-            <!-- <MdPreview :editorId="index" :modelValue="c.content" /> -->
             <p class="text">
               <el-input v-model="c.content" style="width: 100%" :rows="3" type="textarea" />
             </p>
@@ -65,7 +64,7 @@
         <el-input v-model="question" style="width: 100%" :rows="3" type="textarea" placeholder="Please input" />
         <el-button type="primary" @click="ask" style="margin-top: 10px">Ask</el-button>
         <el-button @click="clearConversation" style="margin-top: 10px">Clear conversation</el-button>
-      </el-col>
+      </el-col> -->
     </el-row>
 
     <el-dialog v-model="affectedComponentDialogVisible" title="Possibly affected Components" width="1200">

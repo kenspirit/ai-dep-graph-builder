@@ -31,7 +31,7 @@ export function getTreeOptions(graphData, direction) {
         top: '8%',
         bottom: '20%',
         symbol: 'emptyCircle',
-        orient: direction === 'ancestors' ? 'BT' : 'TB',
+        orient: direction === 'ancestors' ? 'LR' : 'RL',
         expandAndCollapse: true,
         label: {
           position: 'bottom',
