@@ -1,4 +1,5 @@
 
+import _ from 'lodash';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { loadModules } from '../module.loader.js';
@@ -54,7 +55,7 @@ class CustomNodeProjectBuilder extends RepoBuilder {
         }
 
         console.log(`========== Dependencies built for ${filePath} ===========\n`);
-        const { requiredModuleDependencies } = astParser.getDependencies(systemModuleName, rawContent);
+        const { requiredModuleDependencies, instanceAndfunctionDependencies } = astParser.getDependencies(systemModuleName, rawContent);
         const moduleDependencyMap = await _getModuleDependencyMapping(this.rootDir, filePath, requiredModuleDependencies);
         const parsedRoutes = _getValidatorsAndActionMapping(astParser, moduleRoutes.basePath, rawContent);
 
@@ -77,18 +78,31 @@ class CustomNodeProjectBuilder extends RepoBuilder {
           for (const action of parsedRoute.actions) {
             const [moduleIdentifier, functionName] = action.split('.');
             const moduleDependency = moduleDependencyMap[moduleIdentifier];
-            if (!moduleDependency) {
-              console.warn(`Missing Dependency for route ${name} action: ${action}`);
-              continue;
-            }
 
-            component.dependencies.push({
-              category: 'component',
-              language,
-              name: functionName,
-              type: 'Function',
-              systemModule: moduleDependency.dependencyName
-            });
+            if (moduleDependency) {
+              component.dependencies.push({
+                category: 'component',
+                language,
+                name: functionName || moduleIdentifier,
+                type: 'Function',
+                systemModule: moduleDependency.dependencyName
+              });
+            } else {
+              const innerDependency = _.find(instanceAndfunctionDependencies.dependencies, { instanceName: moduleIdentifier });
+              if (innerDependency) {
+                // function defined in the same file
+                component.dependencies.push({
+                  category: 'component',
+                  language,
+                  name: moduleIdentifier,
+                  type: innerDependency.type,
+                  sourceCode: innerDependency.sourceCode,
+                  systemModule: systemModuleName
+                });
+              } else {
+                console.warn(`Missing Dependency for route ${name} action: ${action}`);
+              }
+            }
           }
 
           await this.persistVertex(component);
@@ -119,6 +133,14 @@ async function _getModuleDependencyMapping(rootDir, filePath, requiredModuleDepe
   return result;
 }
 
+function _setRouteAction(route, element) {
+  if (element.type === 'call_expression') {
+    route.actions.push(element.text.substring(0, element.text.indexOf('(')));
+  } else {
+    route.actions.push(element.text);
+  }
+}
+
 function traverse(cursor, result) {
   const node = cursor.currentNode;
 
@@ -141,12 +163,10 @@ function traverse(cursor, result) {
           const route = result[result.length - 1];
           for (let i = 0; i < actionNode.namedChildCount; i++) {
             const element = actionNode.namedChild(i);
-            if (element.type === 'member_expression') {
-              route.actions.push(element.text);
-            }
+            _setRouteAction(route, element);
           }
         } else {
-          route.actions.push(actionNode.text);
+          _setRouteAction(route, actionNode);
         }
 
         break;
@@ -216,7 +236,7 @@ function _convertInstanceAndFunctionDependencies(rootDir, systemModuleName, lang
       dependencies: _convertInstanceAndFunctionDependencies(rootDir, systemModuleName, language, microService, moduleDependencyMap, dependency.dependencies)
     };
     if (['Function', 'String'].includes(converted.type)) {
-      converted.sourceCode = dependency.sourceCode || dependency.instanceName;
+      converted.sourceCode = dependency.sourceCode;
     }
 
     _setSystemModule(rootDir, converted, systemModuleName);
