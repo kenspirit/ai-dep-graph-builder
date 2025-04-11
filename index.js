@@ -1,4 +1,5 @@
-import { VERTEX_SCHEMA, VERTEX_QUERY_SCHEMA, GraphBuilder, registerGraphConnector } from './graph-builder.js';
+import { VERTEX_SCHEMA, VERTEX_QUERY_SCHEMA } from './graph-constants.js';
+import { GraphBuilder, registerGraphConnector } from './graph-builder.js';
 import { AiProvider, registerAiProvider } from './ai-provider.js';
 
 export {

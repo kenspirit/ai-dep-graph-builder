@@ -165,11 +165,13 @@ CREATE INDEX IF NOT EXISTS ON SystemModule (microService, name) UNIQUE;`;
   _getVertexUpdateCommand(vertex) {
     switch (vertex.category) {
       case 'component':
-        return `UPDATE Component SET sourceCode = :sourceCode, description = :description, public = :public, visibility = :visibility,
+        return `UPDATE Component SET type = :type, sourceCode = :sourceCode, description = :description, public = :public, visibility = :visibility,
   fileName = :fileName, language = :language, startRow = :startRow, endRow = :endRow
   WHERE @rid = ${vertex.id};`;
       case 'systemModule':
-        return `UPDATE SystemModule SET businessModules = :businessModules, fileName = :fileName, language = :language WHERE @rid = ${vertex.id};`;
+        return `UPDATE SystemModule SET type = :type, description = :description, businessModules = :businessModules, fileName = :fileName, language = :language WHERE @rid = ${vertex.id};`;
+      default:
+        return `UPDATE ${_.upperFirst(vertex.category)} SET type = :type, description = :description WHERE @rid = ${vertex.id};`;
     }
   }
 

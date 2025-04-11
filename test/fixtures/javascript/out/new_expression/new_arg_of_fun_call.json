@@ -42,7 +42,7 @@
           {
             "module": "this",
             "instanceName": "getMcpServer#version",
-            "type": "method",
+            "type": "field",
             "usage": "version: _.uniqueId('1.0.')",
             "dependencies": []
           },

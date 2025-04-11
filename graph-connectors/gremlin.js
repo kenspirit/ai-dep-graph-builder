@@ -153,6 +153,7 @@ class Gremlin {
         traversal = traversal
           .property('sourceCode', vertex.sourceCode)
           .property('description', vertex.description)
+          .property('type', vertex.type)
           .property('public', vertex.public)
           .property('visibility', vertex.visibility)
           .property('fileName', vertex.fileName)

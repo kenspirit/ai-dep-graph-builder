@@ -1,5 +1,5 @@
 import * as vertexController from './vertex.controller.js';
-import { VERTEX_SCHEMA } from '../../../graph-builder.js';
+import { VERTEX_SCHEMA } from '../../../graph-constants.js';
 import joi from 'joi';
 
 export default {

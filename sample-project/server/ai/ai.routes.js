@@ -1,6 +1,6 @@
 import * as aiController from './ai.controller.js';
 import joi from 'joi';
-import { VERTEX_SCHEMA } from '../../../graph-builder.js';
+import { VERTEX_SCHEMA } from '../../../graph-constants.js';
 
 export default {
   basePath: '/ai',

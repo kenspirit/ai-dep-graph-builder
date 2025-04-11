@@ -1,5 +1,5 @@
 import * as graphController from './graph.controller.js';
-import { VERTEX_QUERY_SCHEMA } from '../../../graph-builder.js';
+import { VERTEX_QUERY_SCHEMA } from '../../../graph-constants.js';
 
 export default {
   basePath: '/graph',

@@ -26,7 +26,7 @@ class CustomNodeProjectBuilder extends RepoBuilder {
         type: isFunction ? 'Function' : 'Field',
         startRow: dependency.startRow,
         endRow: dependency.endRow,
-        sourceCode: isFunction ? dependency.sourceCode : dependency.instanceName,
+        sourceCode: dependency.sourceCode,
         dependencies: _convertInstanceAndFunctionDependencies(this.rootDir, fileName, language, microService, moduleDependencyMap, dependency.dependencies)
       };
 
@@ -233,11 +233,9 @@ function _convertInstanceAndFunctionDependencies(rootDir, systemModuleName, lang
       type: isFunction ? 'Function' : (dependency.type === 'string' ? 'String' : 'Field'),
       startRow: dependency.startRow,
       endRow: dependency.endRow,
+      sourceCode: dependency.sourceCode,
       dependencies: _convertInstanceAndFunctionDependencies(rootDir, systemModuleName, language, microService, moduleDependencyMap, dependency.dependencies)
     };
-    if (['Function', 'String'].includes(converted.type)) {
-      converted.sourceCode = dependency.sourceCode;
-    }
 
     _setSystemModule(rootDir, converted, systemModuleName);
 

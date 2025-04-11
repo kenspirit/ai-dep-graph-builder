@@ -1,0 +1,15 @@
+{
+  "requiredModuleDependencies": {},
+  "instanceAndfunctionDependencies": {
+    "dependencies": [
+      {
+        "module": "$file",
+        "instanceName": "CRL_TYPE_BASE",
+        "type": "field",
+        "usage": "'base'",
+        "sourceCode": "'base'",
+        "dependencies": []
+      }
+    ]
+  }
+}

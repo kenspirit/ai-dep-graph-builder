@@ -22,6 +22,9 @@ function _setDependencyTypeBasedOnNodeType(dependency, node) {
   if (['string', 'template_string'].includes(node.type)) {
     dependency.$type = 'string';
     dependency.$sourceCode = node.text;
+  } else if (node.type === 'call_expression') {
+    // Cannot determine the type of call expression, so set it to field
+    dependency.$type = 'field';
   } else if (node.type === 'array') {
     dependency.$type = 'array';
   }
@@ -209,6 +212,9 @@ function _lexicalDeclarationHandler(scopeInstanceName, node, requiredModuleDepen
       } else if (assignmentNode.type === 'function_expression' || assignmentNode.type === 'arrow_function') {
         dependency.$sourceCode = assignmentNode.text;
         dependency.$type = 'method';
+      } else if (assignmentNode.type === 'string') {
+        dependency.$sourceCode = assignmentNode.text;
+        dependency.$usage = assignmentNode.text;
       }
     }
 
@@ -725,6 +731,7 @@ const NODE_TYPE_HANDLERS = {
   if_statement: _generalExpressionHandler,
   else_clause: _generalExpressionHandler,
   do_statement: _generalExpressionHandler,
+  switch_body: _generalExpressionHandler,
   switch_statement: _generalExpressionHandler,
   while_statement: _generalExpressionHandler,
   try_statement: _generalExpressionHandler,
