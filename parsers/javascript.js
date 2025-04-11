@@ -724,6 +724,8 @@ const NODE_TYPE_HANDLERS = {
   update_statement: _generalExpressionHandler,
   if_statement: _generalExpressionHandler,
   else_clause: _generalExpressionHandler,
+  do_statement: _generalExpressionHandler,
+  switch_statement: _generalExpressionHandler,
   while_statement: _generalExpressionHandler,
   try_statement: _generalExpressionHandler,
   catch_clause: _catchClauseHandler,
@@ -1029,7 +1031,11 @@ class AstParser {
       fs.writeFileSync('./dependencies.js.json', JSON.stringify(massagedResult, null, 2));
       return { requiredModuleDependencies, instanceAndfunctionDependencies: massagedResult };
     } catch (error) {
-      console.error(`Error parsing code: \n${rawContent}`, error);
+      if (error.message.indexOf('Invalid argument') !== -1) {
+        console.error('Possibly file size is too large', error);
+      } else {
+        console.error(`Error parsing code: \n${rawContent}`, error);
+      }
       throw error;
     }
   }

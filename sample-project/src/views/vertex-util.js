@@ -1,5 +1,5 @@
 export function idOfVertex(vertex) {
-  return vertex['@rid'];
+  return vertex.id;
 }
 
 export function nameOfVertex(vertex) {

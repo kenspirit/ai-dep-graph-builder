@@ -8,7 +8,7 @@ function _sankeyData(graphData) {
 
 function _sankeyLinks(graphData) {
   const vertexMap = graphData.vertices.reduce((acc, vertex) => {
-    acc[vertex['@rid']] = nameOfVertex(vertex)
+    acc[vertex.id] = nameOfVertex(vertex)
     return acc;
   }, {});
 

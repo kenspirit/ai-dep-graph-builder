@@ -1,7 +1,7 @@
 import { nameOfVertex } from './vertex-util.js'
 
 function _convertVertexTree(vertexId, { vertices, links }) {
-  const vertex = vertices.find((item) => item['@rid'] === vertexId);
+  const vertex = vertices.find((item) => item.id === vertexId);
   const childrenIds = new Set(links.filter((item) => item.source === vertexId).map((item) => item.target));
   const children = [];
   for (const childId of childrenIds.values()) {

@@ -3,13 +3,29 @@ import axios from 'axios';
 
 const HEADER_SESSION_ID = 'arcadedb-session-id';
 
-function assignCategory(vertex) {
+function vertexToPojo(vertex) {
   if (!vertex) {
     return;
   }
+
   vertex.category = _.lowerFirst(vertex['@type']);
+  vertex.id = vertex['@rid'];
   delete vertex['@type'];
+  delete vertex['@rid'];
   return vertex;
+}
+
+function edgeToPojo(edge) {
+  if (!edge) {
+    return;
+  }
+
+  return {
+    id: edge['@rid'],
+    label: edge['@type'],
+    outVertexId: edge['@out'],
+    inVertexId: edge['@in']
+  };
 }
 
 class ArcadeDB {
@@ -143,7 +159,7 @@ CREATE INDEX IF NOT EXISTS ON SystemModule (microService, name) UNIQUE;`;
   async createVertex(vertex, sessionId) {
     const command = this._getVertexCommand(vertex);
     const result = await this._dbCommand('command', sessionId, command, vertex);
-    return result.map(assignCategory);
+    return result.map(vertexToPojo);
   }
 
   _getVertexUpdateCommand(vertex) {
@@ -151,9 +167,9 @@ CREATE INDEX IF NOT EXISTS ON SystemModule (microService, name) UNIQUE;`;
       case 'component':
         return `UPDATE Component SET sourceCode = :sourceCode, description = :description, public = :public, visibility = :visibility,
   fileName = :fileName, language = :language, startRow = :startRow, endRow = :endRow
-  WHERE @rid = ${vertex['@rid']};`;
+  WHERE @rid = ${vertex.id};`;
       case 'systemModule':
-        return `UPDATE SystemModule SET businessModules = :businessModules, fileName = :fileName, language = :language WHERE @rid = ${vertex['@rid']};`;
+        return `UPDATE SystemModule SET businessModules = :businessModules, fileName = :fileName, language = :language WHERE @rid = ${vertex.id};`;
     }
   }
 
@@ -177,12 +193,12 @@ CREATE INDEX IF NOT EXISTS ON SystemModule (microService, name) UNIQUE;`;
 
   async getVertex(vertex, sessionId) {
     const result = await this._dbCommand('query', sessionId, this._getVertexQuery(vertex), vertex);
-    return result.map(assignCategory)[0];
+    return result.map(vertexToPojo)[0];
   }
 
   async getVerticesByIds(ids) {
     const result = await this._dbCommand('query', undefined, `SELECT FROM [${ids.join(', ')}]`);
-    return result.map(assignCategory);
+    return result.map(vertexToPojo);
   }
 
   async getComponentByNameAndLanguage(name, language, systemModule) {
@@ -194,7 +210,7 @@ CREATE INDEX IF NOT EXISTS ON SystemModule (microService, name) UNIQUE;`;
     }
 
     const result = await this._dbCommand('query', undefined, sql, params);
-    return result.map(assignCategory);
+    return result.map(vertexToPojo);
   }
 
   async getComponentByRowNumber(systemModule, rowNumber) {
@@ -202,17 +218,17 @@ CREATE INDEX IF NOT EXISTS ON SystemModule (microService, name) UNIQUE;`;
     const sql = `SELECT FROM Component WHERE systemModule LIKE :systemModule AND startRow <= :rowNumber AND endRow >= :rowNumber`;
 
     const result = await this._dbCommand('query', undefined, sql, params);
-    return result.map(assignCategory);
+    return result.map(vertexToPojo);
   }
 
   async getVerticesByCategory(category) {
     const result = await this._dbCommand('query', undefined, `SELECT FROM ${category};`);
-    return result.map(assignCategory);
+    return result.map(vertexToPojo);
   }
 
   async getVerticesByTypesWithDescription(category, types) {
     const result = await this._dbCommand('query', undefined, `SELECT FROM ${category} WHERE type IN :types AND description is not null;`, { types });
-    return result.map(assignCategory);
+    return result.map(vertexToPojo);
   }
 
   async createEdgeByVertices(fromVertex, toVertex, sessionId) {
@@ -220,7 +236,7 @@ CREATE INDEX IF NOT EXISTS ON SystemModule (microService, name) UNIQUE;`;
     if (existingEdge) {
       return existingEdge;
     }
-    const command = `CREATE EDGE Uses FROM ${fromVertex['@rid']} TO ${toVertex['@rid']};`;
+    const command = `CREATE EDGE Uses FROM ${fromVertex.id} TO ${toVertex.id};`;
     const [createdEdge] = await this._dbCommand('command', sessionId, command);
     return createdEdge;
   }
@@ -249,10 +265,10 @@ CREATE INDEX IF NOT EXISTS ON SystemModule (microService, name) UNIQUE;`;
   }
 
   async getEdgeByVertices(fromVertex, toVertex) {
-    const edge = { from: fromVertex['@rid'], to: toVertex['@rid'] };
+    const edge = { from: fromVertex.id, to: toVertex.id };
     const query = `SELECT FROM Uses WHERE @out = '${edge.from}' AND @in = '${edge.to}';`
     const result = await this._dbCommand('query', undefined, query, edge);
-    return result[0];
+    return edgeToPojo(result[0]);
   }
 
   _getGremlinVertexQuery(vertex) {
@@ -301,22 +317,21 @@ CREATE INDEX IF NOT EXISTS ON SystemModule (microService, name) UNIQUE;`;
     return Array.from(uniquePaths).map(path => ({ paths: path }));
   }
 
-  async getDescendants(vertex, type, hasSourceCode, depth = 0) {
+  async _traverseGraph(direction, vertex, type, hasSourceCode, depth) {
     const typeFilter = type ? `.has('type', '${type}')` : '';
     const sourceCodeFilter = hasSourceCode ? `.has('sourceCode', P.neq(null)).has('sourceCode', P.neq(''))` : '';
     const depthLimit = depth > 0 ? `.times(${depth})` : '';
-    const query = `${this._getGremlinVertexQuery(vertex)}.out('Uses')${typeFilter}${sourceCodeFilter}.emit().repeat(__.out('Uses')${typeFilter}${sourceCodeFilter})${depthLimit}.path().dedup()`;
+    const query = `${this._getGremlinVertexQuery(vertex)}.${direction}('Uses')${typeFilter}${sourceCodeFilter}.emit().repeat(__.${direction}('Uses')${typeFilter}${sourceCodeFilter})${depthLimit}.path().dedup()`;
     const result = await this._dbCommand('query', undefined, query, undefined, 'gremlin');
     return this._removeSubPaths(result, depth);
   }
 
+  async getDescendants(vertex, type, hasSourceCode, depth = 0) {
+    return this._traverseGraph('out', vertex, type, hasSourceCode, depth);
+  }
+
   async getAncestors(vertex, type, hasSourceCode, depth = 0) {
-    const typeFilter = type ? `.has('type', '${type}')` : '';
-    const sourceCodeFilter = hasSourceCode ? `.has('sourceCode', P.neq(null)).has('sourceCode', P.neq(''))` : '';
-    const depthLimit = depth > 0 ? `.times(${depth})` : '';
-    const query = `${this._getGremlinVertexQuery(vertex)}.in('Uses')${typeFilter}${sourceCodeFilter}.emit().repeat(__.in('Uses')${typeFilter}${sourceCodeFilter})${depthLimit}.path().dedup()`;
-    const result = await this._dbCommand('query', undefined, query, undefined, 'gremlin');
-    return this._removeSubPaths(result, depth);
+    return this._traverseGraph('in', vertex, type, hasSourceCode, depth);
   }
 }
 
