@@ -32,6 +32,7 @@
             "instanceName": "'a'",
             "type": "string",
             "usage": "string",
+            "sourceCode": "'a'",
             "dependencies": []
           },
           {
@@ -39,6 +40,7 @@
             "instanceName": "'b'",
             "type": "string",
             "usage": "string",
+            "sourceCode": "'b'",
             "dependencies": []
           },
           {
@@ -46,6 +48,7 @@
             "instanceName": "'c'",
             "type": "string",
             "usage": "string",
+            "sourceCode": "'c'",
             "dependencies": []
           }
         ]

@@ -1,4 +1,29 @@
-function getFunctionDescription(functionCode) {
+function getFileDescription(functionCode, lang = 'javascript') {
+  return `Based on the provided source file, try to describe the source code file and each function in business terms.
+  Placeholder is wording between $$ such as $$FILE_DESCRIPTION$$.
+  If source code is java, FUNCTION_NAME should be fully qualified name such as \`com.gsbn.abc.def.MyClass.myMethod(paramType1, paramType2)\`, and parameter type (such as paramType1) in FUNCTION_NAME is only simple name.
+
+Sample output should be in JSON format:
+
+{
+  "description": "$$FILE_DESCRIPTION$$",
+  "components": [
+    {
+      "name": "$$FUNCTION_NAME$$",
+      "description": "$$FUNCTION_DESCRIPTION$$"
+    }
+  ]
+}
+
+Please return full JSON format in one response, without other text, comment or markdown syntax.
+---------------
+\`\`\`${lang}
+${functionCode}
+\`\`\`
+`;
+}
+
+function getFunctionDescription(functionCode, lang = 'javascript') {
   return `I want to extract the description of the function in JavaScript source code.  Sample output in JSON format is:
 {
   "description": "The function is used to describe the function"
@@ -11,7 +36,7 @@ If no description found, please return output as below:
 
 Please describe the function for below code in more business terms, and return the full JSON format in one response, without other text, comment or markdown syntax.
 ---------------
-\`\`\`javascript
+\`\`\`${lang}
 ${functionCode}
 \`\`\`
 `;
@@ -236,6 +261,7 @@ If no components matched, just return \`[]\`.
 }
 
 export default {
+  getFileDescription,
   getFunctionDescription,
   getFunctionDependencies,
   getRequiredModuleDependencies,

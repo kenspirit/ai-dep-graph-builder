@@ -77,6 +77,27 @@ export class RepoBuilder {
     return this.parserInstances[language];
   }
 
+  async getFileDescription(codeFileContent, language) {
+    if (!this.aiProvider) {
+      return {};
+    }
+
+    try {
+      return this.aiProvider.getFileDescription(codeFileContent, language);
+    } catch (error) {
+      console.error('Error retrieving file description:', error);
+      return {};
+    }
+  }
+
+  getFunctionDescription(fileDescription, functionName) {
+    const funDesc = _.find(fileDescription.components, { name: functionName });
+    if (!funDesc) {
+      return null;
+    }
+    return funDesc.description;
+  }
+
   async buildSystemModuleVertices(rootDir, config, parsedDirOrFile) {
     const codeFiles = await loadModules(parsedDirOrFile || rootDir, config.filesMatchingPatterns, false, config.vscExtension);
 
@@ -95,6 +116,7 @@ export class RepoBuilder {
         if (!relativePath.startsWith('/')) {
           relativePath = `/${relativePath}`;
         }
+        const fileDescriptions = await this.getFileDescription(rawContent, language);
         const { requiredModuleDependencies, instanceAndfunctionDependencies } = await astParser.getDependencies(relativePath, rawContent);
         let fileName = instanceAndfunctionDependencies.$name || relativePath;
 
@@ -102,8 +124,8 @@ export class RepoBuilder {
 
         for (const dependency of moduleDependencies) {
           // Only top level public functions are considered
-          if (dependency.public && dependency.type === 'Function' && dependency.sourceCode) {
-            dependency.description = await this.getFunctionDescriptionThroughAI(dependency.sourceCode);
+          if (dependency.type === 'Function' && dependency.sourceCode) {
+            dependency.description = await this.getFunctionDescription(fileDescriptions, dependency.name);
           }
 
           await this.persistVertex(dependency);
@@ -144,20 +166,6 @@ export class RepoBuilder {
     });
 
     return result;
-  }
-
-  async getFunctionDescriptionThroughAI(functionSourceCode) {
-    if (!this.aiProvider) {
-      return '';
-    }
-
-    try {
-      const response = await this.aiProvider.getFunctionDescription(functionSourceCode);
-      return response.description;
-    } catch (error) {
-      console.error('Error retrieving function description:', error);
-      return '';
-    }
   }
 }
 

@@ -1,0 +1,36 @@
+{
+  "requiredModuleDependencies": {
+    "logger": {
+      "source": "./logger.js",
+      "isDefault": true
+    }
+  },
+  "instanceAndfunctionDependencies": {
+    "dependencies": [
+      {
+        "module": "$file",
+        "instanceName": "simpleExternal",
+        "type": "method",
+        "public": true,
+        "usage": "$property",
+        "sourceCode": "$SOURCE_CODE$",
+        "startRow": 3,
+        "endRow": 5,
+        "dependencies": [
+          {
+            "module": "./logger.js",
+            "instanceName": "info",
+            "type": "method",
+            "public": true,
+            "usage": "logger.info('Hello world!')",
+            "externalSource": {
+              "source": "./logger.js",
+              "isDefault": true
+            },
+            "dependencies": []
+          }
+        ]
+      }
+    ]
+  }
+}

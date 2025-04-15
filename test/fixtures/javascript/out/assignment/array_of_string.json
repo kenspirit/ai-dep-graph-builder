@@ -1,0 +1,30 @@
+{
+  "requiredModuleDependencies": {},
+  "instanceAndfunctionDependencies": {
+    "dependencies": [
+      {
+        "module": "$file",
+        "instanceName": "CRL_TYPE_BASE",
+        "type": "array",
+        "usage": "array",
+        "dependencies": []
+      },
+      {
+        "module": "string",
+        "instanceName": "'base'",
+        "type": "string",
+        "usage": "string",
+        "sourceCode": "'base'",
+        "dependencies": []
+      },
+      {
+        "module": "string",
+        "instanceName": "'ultra'",
+        "type": "string",
+        "usage": "string",
+        "sourceCode": "'ultra'",
+        "dependencies": []
+      }
+    ]
+  }
+}

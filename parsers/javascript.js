@@ -28,7 +28,6 @@ function _setDependencyTypeBasedOnNodeType(dependency, node) {
   } else if (node.type === 'array') {
     dependency.$type = 'array';
   }
-  dependency.$value = node.text; // string value here;
 }
 
 function _programHandler(scopeInstanceName, node, requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables) {
@@ -55,6 +54,9 @@ function _getRequireSource(node) {
     } else {
       return _getRequireSource(node.children[0]);
     }
+  } else if (node.type === 'member_expression') {
+    // require('xxxx').xyz
+    return _getRequireSource(node.children[0]);
   }
 }
 
@@ -212,9 +214,17 @@ function _lexicalDeclarationHandler(scopeInstanceName, node, requiredModuleDepen
       } else if (assignmentNode.type === 'function_expression' || assignmentNode.type === 'arrow_function') {
         dependency.$sourceCode = assignmentNode.text;
         dependency.$type = 'method';
-      } else if (assignmentNode.type === 'string') {
-        dependency.$sourceCode = assignmentNode.text;
-        dependency.$usage = assignmentNode.text;
+      } else if (assignmentNode.type === 'string' && assignmentNode.text) {
+        if (localScopeVariables.includes(variableIdentifier)) {
+          // For locally define variable, string constant might be URL or other hardcoded value.
+          // Should add it as separate dependency
+          const constantDependnecy = _captureDependency(dependency, assignmentNode.text);
+          constantDependnecy.$type = 'string';
+          constantDependnecy.$sourceCode = assignmentNode.text;
+        } else {
+          dependency.$sourceCode = assignmentNode.text;
+          dependency.$usage = assignmentNode.text;
+        }
       }
     }
 
@@ -572,7 +582,7 @@ function _arrayHandler(scopeInstanceName, node, requiredModuleDependencies, inst
     if (['string', 'template_string'].includes(child.type)) {
       const dependency = _captureDependency(instanceAndfunctionDependencies, child.text);
       dependency.$type = 'string';
-      dependency.$value = child.text;
+      dependency.$sourceCode = child.text;
       dependency.$index = index;
     } else if (child.type === 'identifier' && !localScopeVariables.includes(child.text)) {
       _captureDependency(instanceAndfunctionDependencies, child.text);
@@ -822,7 +832,7 @@ function _captureDependencyWithScope(scopeInstanceName, dependentIdentifer, inst
   if (['string', 'template_string'].includes(node.type)) {
     delete dependency[dependentIdentifer];
     dependency.$usage = 'string';
-    dependency.$value = dependentIdentifer; // string value here;
+    dependency.$sourceCode = dependentIdentifer; // string value here;
   } else if (node.type === 'array') {
     // Child dependency of array might possibly need this info and add index as part of identifier
     dependency[dependentIdentifer].$type = 'array';
@@ -891,12 +901,8 @@ function _convertDependencyStructure(node, requiredModuleDependencies, instanceA
     dependency.module = 'string';
     const parts = dependency.instanceName.match(/\[(\d+)\](\w+)/);
     if (parts) {
-      dependency.instanceName = `${parts[2]}: ${node.$value}`;
+      dependency.instanceName = `${parts[2]}: ${node.$sourceCode}`;
       dependency.$index = parts[1];
-    } else if (node.$name !== node.$value) {
-      dependency.instanceName = `${node.$name}: ${node.$value}`;
-    } else {
-      dependency.instanceName = node.$value;
     }
   } else if (usage === '$assignment' && dependency.module !== '$file' && externalModuleDependency) {
     // Real property field from other module is assigned to this module
@@ -926,6 +932,15 @@ function _convertDependencyStructure(node, requiredModuleDependencies, instanceA
     if (topLevelModule.$constructor) {
       dependency.instanceName = dependencyName.replace(`${topLevelName}.`, `${topLevelModule.$constructor}.`);
     }
+    dependency.module = topLevelModule.$module || topLevelName;
+  } else if (dependencyName !== topLevelName) {
+    // Expected to be JS internal module, such as Buffer, String, etc
+    // Local variable should not be captured and passed here.
+    dependency.module = topLevelName;
+    dependency.instanceName = dependencyName.replace(`${topLevelName}.`, '');
+  } else if (dependency.type === 'constructor' && !node.$module) {
+    // Should be JS internal module, such as Buffer, String, etc
+    dependency.module = dependency.instanceName;
   }
 
   return dependency;

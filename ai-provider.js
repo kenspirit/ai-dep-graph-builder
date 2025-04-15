@@ -7,6 +7,13 @@ const AI_PROVIDERS = {
 }
 
 const SCHEMA = {
+  FILE_DESCRIPTION: joi.object({
+    description: joi.string(),
+    components: joi.array().items(joi.object({
+      name: joi.string().required(),
+      description: joi.string().required()
+    })).required()
+  }),
   FUNCTION_DESCRIPTION: joi.object({
     description: joi.string()
   }),
@@ -41,8 +48,14 @@ class AiProvider {
     this.client = new AI_PROVIDERS[providerType](providerOptions);
   }
 
-  async chat(messages) {
-    return this.client.chat(messages);
+  async chat(messages, stream) {
+    return this.client.chat(messages, stream);
+  }
+
+  async getFileDescription(fileCode) {
+    const prompt = AiQueryTemplate.getFileDescription(fileCode);
+    const result = await this.client.chat(prompt);
+    return validate(SCHEMA.FILE_DESCRIPTION, result);
   }
 
   async getFunctionDescription(functionCode) {

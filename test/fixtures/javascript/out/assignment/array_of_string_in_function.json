@@ -1,0 +1,35 @@
+{
+  "requiredModuleDependencies": {},
+  "instanceAndfunctionDependencies": {
+    "dependencies": [
+      {
+        "module": "$file",
+        "instanceName": "simple",
+        "type": "method",
+        "public": true,
+        "usage": "$property",
+        "sourceCode": "$SOURCE_CODE$",
+        "startRow": 1,
+        "endRow": 3,
+        "dependencies": [
+          {
+            "module": "string",
+            "instanceName": "'base'",
+            "type": "string",
+            "usage": "string",
+            "sourceCode": "'base'",
+            "dependencies": []
+          },
+          {
+            "module": "string",
+            "instanceName": "'ultra'",
+            "type": "string",
+            "usage": "string",
+            "sourceCode": "'ultra'",
+            "dependencies": []
+          }
+        ]
+      }
+    ]
+  }
+}
