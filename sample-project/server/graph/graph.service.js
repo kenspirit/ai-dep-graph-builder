@@ -71,10 +71,15 @@ async function getVerticesByIds(ids) {
   return graphBuilder.getVerticesByIds(ids);
 }
 
+async function getComponentByRowNumber(systemModule, rowNumber) {
+  return graphBuilder.getComponentByRowNumber(systemModule, rowNumber);
+}
+
 export {
   graphBuilder,
   getDescendants,
   getAncestors,
   getAllAffected,
-  getVerticesByIds
+  getVerticesByIds,
+  getComponentByRowNumber
 };

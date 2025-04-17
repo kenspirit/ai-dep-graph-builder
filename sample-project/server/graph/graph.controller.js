@@ -23,8 +23,38 @@ async function getAll(req, res) {
   res.json(vertices);
 }
 
+async function getByModuleRowNumber(req, res) {
+  const vertex = await graphService.getComponentByRowNumber(req.query.systemModule, parseInt(req.query.rowNumber));
+
+  if (!vertex || vertex.length === 0) {
+    return res.json({
+      vertices: [],
+      links: [],
+      categories: [
+        { name: 'Class' },
+        { name: 'Function' },
+        { name: 'Field' },
+        { name: 'API' }
+      ]
+    });
+  }
+
+  const direction = req.params.direction;
+  let vertices;
+  if (direction === 'descendants') {
+    vertices = await graphService.getDescendants(vertex[0], req.query.dependencyType, req.query.hasSourceCode, getDepth(req));
+  } else if (direction === 'ancestors') {
+    vertices = await graphService.getAncestors(vertex[0], req.query.dependencyType, req.query.hasSourceCode, getDepth(req));
+  } else if (direction === 'all') {
+    vertices = await graphService.getAllAffected(vertex[0], req.query.dependencyType, req.query.hasSourceCode, getDepth(req));
+  }
+
+  res.json(vertices);
+}
+
 export {
   getDescendants,
   getAncestors,
-  getAll
+  getAll,
+  getByModuleRowNumber
 };

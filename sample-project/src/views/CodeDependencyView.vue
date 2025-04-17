@@ -10,6 +10,7 @@
             <el-radio-group v-model="form.direction">
               <el-radio value="descendants">Descendants</el-radio>
               <el-radio value="ancestors">Ancestors</el-radio>
+              <el-radio value="all">All</el-radio>
             </el-radio-group>
           </el-form-item>
         </el-col>
@@ -42,6 +43,11 @@
         <el-col :span="6">
           <el-form-item label="Dependency Type">
             <el-input v-model="form.dependencyType" style="width: 240px" placeholder="Function" />
+          </el-form-item>
+        </el-col>
+        <el-col :span="6">
+          <el-form-item label="Row Number">
+            <el-input-number v-model="form.rowNumber" :min="0" :step="1" style="width: 240px" placeholder="If > 0, search by rownumber instead of name" />
           </el-form-item>
         </el-col>
         <el-col :span="6">
@@ -125,13 +131,14 @@ const categories = [
 const affectedComponentDialogVisible = ref(false)
 
 const form = reactive({
-  direction: 'ancestors',
+  direction: 'all',
   category: 'component',
   microService: 'dep-graph-builder',
   systemModule: '/graph/graph.service.js',
   name: 'getAncestors',
   dependencyType: 'Function',
-  depth: 0
+  depth: 0,
+  rowNumber: 0
 })
 
 const graphData = {
@@ -145,18 +152,13 @@ const conversations = ref([]);
 const question = ref('');
 const gridData = ref([]);
 
-function setDefault(direction) {
-  if (direction === 'ancestors') {
-    form.systemModule = '/graph/graph.service.js';
-    form.name = 'getAncestors';
-  } else {
-    form.systemModule = '/vertex/vertex.routes.js';
-    form.name = 'get /vertex/';
-  }
-}
-
 async function retrieve() {
-  const response = await axios.get(`/api/graph/${form.direction}?category=${form.category}&name=${encodeURIComponent(form.name)}&systemModule=${encodeURIComponent(form.systemModule)}&microService=${encodeURIComponent(form.microService)}&dependencyType=${encodeURIComponent(form.dependencyType)}&depth=${form.depth}`)
+  let response;
+  if (form.rowNumber > 0) {
+    response = await axios.get(`/api/graph/module-rownumber/${form.direction}?category=${form.category}&rowNumber=${form.rowNumber}&systemModule=${encodeURIComponent(form.systemModule)}&microService=${encodeURIComponent(form.microService)}&dependencyType=${encodeURIComponent(form.dependencyType)}&depth=${form.depth}`)
+  } else {
+    response = await axios.get(`/api/graph/${form.direction}?category=${form.category}&name=${encodeURIComponent(form.name)}&systemModule=${encodeURIComponent(form.systemModule)}&microService=${encodeURIComponent(form.microService)}&dependencyType=${encodeURIComponent(form.dependencyType)}&depth=${form.depth}`)
+  }
   const newOptions = getTreeOptions(response.data, form.direction);
   // const newOptions = getSankeyOptions(response.data);
 
