@@ -1,10 +1,12 @@
+import Arango from './graph-connectors/arango.js';
 import Arcadedb from './graph-connectors/arcadedb.js';
 import Gremlin from './graph-connectors/gremlin.js';
 import { VERTEX_SCHEMA, VERTEX_QUERY_SCHEMA, UPDATABLE_FIELDS } from './graph-constants.js';
 
 const GRAPH_CONNECTOR_TYPES = {
   GREMLIN: Gremlin,
-  ARCADEDB: Arcadedb
+  ARCADEDB: Arcadedb,
+  ARANGO: Arango
 };
 
 class GraphBuilder {
@@ -72,8 +74,8 @@ class GraphBuilder {
         parent = existingVertex;
       } else {
         const created = await this.connector.createVertex(vertex, sessionId);
-        if (created[0]) {
-          parent = created[0];
+        if (created) {
+          parent = created;
         } else {
           throw new Error('Failed to create vertex');
         }

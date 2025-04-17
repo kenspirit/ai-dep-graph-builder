@@ -159,7 +159,7 @@ CREATE INDEX IF NOT EXISTS ON SystemModule (microService, name) UNIQUE;`;
   async createVertex(vertex, sessionId) {
     const command = this._getVertexCommand(vertex);
     const result = await this._dbCommand('command', sessionId, command, vertex);
-    return result.map(vertexToPojo);
+    return vertexToPojo(result[0]);
   }
 
   _getVertexUpdateCommand(vertex) {
@@ -177,7 +177,7 @@ CREATE INDEX IF NOT EXISTS ON SystemModule (microService, name) UNIQUE;`;
 
   async updateVertex(vertex, sessionId) {
     const command = this._getVertexUpdateCommand(vertex);
-    return this._dbCommand('command', sessionId, command, vertex);
+    return this._dbCommand('command', sessionId, command, vertex)[0];
   }
 
   _getVertexQuery(vertex) {

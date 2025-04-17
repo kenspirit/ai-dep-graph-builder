@@ -138,7 +138,7 @@ class Gremlin {
     }
 
     const vertices = await traversal.toList();
-    return vertices.map(vertexToPojo);
+    return vertexToPojo[vertices[0]];
   }
 
   async updateVertex(vertex) {
@@ -170,7 +170,7 @@ class Gremlin {
     }
 
     const vertices = await traversal.toList();
-    return vertices.map(vertexToPojo);
+    return vertexToPojo(vertices[0]);
   }
 
   async getVertex(vertex) {
