@@ -330,7 +330,7 @@ class ArangoDB {
     return Array.from(uniquePaths).map(path => ({ paths: path }));
   }
 
-  async _traverseGraph(direction, vertex, type, hasSourceCode, depth = 0) {
+  async _traverseGraph(direction, vertex, type, options) {
     const collection = this.getCollection(vertex.category);
     if (!collection) {
       throw new Error(`Invalid category: ${vertex.category}`);
@@ -349,9 +349,10 @@ class ArangoDB {
 FOR v IN ${collection.name}
   FILTER v.name == @name
   ${vertex.category === 'component' ? 'FILTER v.systemModule == @systemModule' : ''}
-  FOR related, edge, path IN 0..${depth || 100} ${direction} v Uses
+  FOR related, edge, path IN 0..${options.depth || 100} ${direction} v Uses
     ${type ? 'FILTER related.type == @type' : ''}
-    ${hasSourceCode ? 'FILTER related.sourceCode != null' : ''}
+    ${options.hasSourceCode ? 'FILTER related.sourceCode != null' : ''}
+    ${options.minFnRowCount > 0 ? `FILTER related.endRow - related.startRow >= ${options.minFnRowCount}` : ''}
     RETURN { 
       result: path.vertices[*]._id
     }`;
@@ -363,15 +364,15 @@ FOR v IN ${collection.name}
     });
 
     const result = await cursor.all();
-    return this._removeSubPaths(result, depth);
+    return this._removeSubPaths(result, options.depth);
   }
 
-  async getDescendants(vertex, type, hasSourceCode, depth = 0) {
-    return this._traverseGraph('OUTBOUND', vertex, type, hasSourceCode, depth);
+  async getDescendants(vertex, type, options) {
+    return this._traverseGraph('OUTBOUND', vertex, type, options);
   }
 
-  async getAncestors(vertex, type, hasSourceCode, depth = 0) {
-    return this._traverseGraph('INBOUND', vertex, type, hasSourceCode, depth);
+  async getAncestors(vertex, type, options) {
+    return this._traverseGraph('INBOUND', vertex, type, options);
   }
 }
 

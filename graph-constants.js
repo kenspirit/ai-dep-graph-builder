@@ -8,8 +8,8 @@ const VERTEX_SCHEMA = joi.object({
   visibility: joi.string(),
   public: joi.boolean().default(false),
   description: joi.string().allow('', null).default(''),
-  startRow: joi.number().integer(),
-  endRow: joi.number().integer(),
+  startRow: joi.number().integer().default(0),
+  endRow: joi.number().integer().default(0),
   dependencies: joi.array().items(joi.link('#vertex')),
   sourceCode: joi.string().when('category', {
     is: 'component',

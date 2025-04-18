@@ -47,6 +47,7 @@ export default {
           systemModule: joi.string().required(),
           dependencyType: joi.string().valid('Function', 'Class', 'Field', 'API').default('Function'),
           hasSourceCode: joi.boolean().default(true),
+          minFnRowCount: joi.number().integer().min(0).default(0),
           depth: joi.number().integer().min(0).default(0)
         })
       }

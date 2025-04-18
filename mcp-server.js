@@ -123,7 +123,8 @@ If interface of the provided component is changed, the upstream components need 
   async (vertex) => {
     try {
       vertex.category = 'component';
-      const ancestors = await graphBuilder.getAncestors(vertex, vertex.dependencyType, vertex.hasSourceCode, vertex.depth);
+      const options = { hasSourceCode: vertex.hasSourceCode, depth: vertex.depth };
+      const ancestors = await graphBuilder.getAncestors(vertex, vertex.dependencyType, options);
 
       return _formatResult(ancestors);
     } catch (error) {
@@ -150,7 +151,8 @@ If interface of the provided component is NOT changed, only the implementation i
   async (vertex) => {
     try {
       vertex.category = 'component';
-      const descendants = await graphBuilder.getDescendants(vertex, vertex.dependencyType, vertex.hasSourceCode, vertex.depth);
+      const options = { hasSourceCode: vertex.hasSourceCode, depth: vertex.depth };
+      const descendants = await graphBuilder.getDescendants(vertex, vertex.dependencyType, options);
 
       return _formatResult(descendants);
     } catch (error) {
@@ -177,8 +179,9 @@ server.tool('listAllDependencies',
     fs.appendFileSync('mcp.log', JSON.stringify(vertex) + '\n');
     try {
       vertex.category = 'component';
-      const descendants = await graphBuilder.getDescendants(vertex, vertex.dependencyType, vertex.hasSourceCode, vertex.depth);
-      const ancestors = await graphBuilder.getAncestors(vertex, vertex.dependencyType, vertex.hasSourceCode, vertex.depth);
+      const options = { hasSourceCode: vertex.hasSourceCode, depth: vertex.depth };
+      const descendants = await graphBuilder.getDescendants(vertex, vertex.dependencyType, options);
+      const ancestors = await graphBuilder.getAncestors(vertex, vertex.dependencyType, options);
       fs.appendFileSync('mcp.log', 'Before responsing result.\n');
       return _formatResult(ancestors.concat(descendants));
     } catch (error) {

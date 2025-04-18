@@ -319,21 +319,27 @@ CREATE INDEX IF NOT EXISTS ON SystemModule (microService, name) UNIQUE;`;
     return Array.from(uniquePaths).map(path => ({ paths: path }));
   }
 
-  async _traverseGraph(direction, vertex, type, hasSourceCode, depth) {
+  async _traverseGraph(direction, vertex, type, options) {
     const typeFilter = type ? `.has('type', '${type}')` : '';
-    const sourceCodeFilter = hasSourceCode ? `.has('sourceCode', P.neq(null)).has('sourceCode', P.neq(''))` : '';
-    const depthLimit = depth > 0 ? `.times(${depth})` : '';
-    const query = `${this._getGremlinVertexQuery(vertex)}.${direction}('Uses')${typeFilter}${sourceCodeFilter}.emit().repeat(__.${direction}('Uses')${typeFilter}${sourceCodeFilter})${depthLimit}.path().dedup()`;
+    const sourceCodeFilter = options.hasSourceCode ? `.has('sourceCode', P.neq(null)).has('sourceCode', P.neq(''))` : '';
+    const rowCountFilter = options.minFnRowCount > 0 ? `
+    .filter(
+      	__.sack(assign).by(__.values('endRow'))
+          .sack(minus).by(__.values('startRow'))
+          .sack().is(P.gte(${options.minFnRowCount}))
+      )` : '';
+    const depthLimit = options.depth > 0 ? `.times(${options.depth})` : '';
+    const query = `${this._getGremlinVertexQuery(vertex)}.${direction}('Uses')${typeFilter}${sourceCodeFilter}.emit().repeat(__.${direction}('Uses')${typeFilter}${sourceCodeFilter}${rowCountFilter})${depthLimit}.path().dedup()`;
     const result = await this._dbCommand('query', undefined, query, undefined, 'gremlin');
-    return this._removeSubPaths(result, depth);
+    return this._removeSubPaths(result, options.depth);
   }
 
-  async getDescendants(vertex, type, hasSourceCode, depth = 0) {
-    return this._traverseGraph('out', vertex, type, hasSourceCode, depth);
+  async getDescendants(vertex, type, options) {
+    return this._traverseGraph('out', vertex, type, options);
   }
 
-  async getAncestors(vertex, type, hasSourceCode, depth = 0) {
-    return this._traverseGraph('in', vertex, type, hasSourceCode, depth);
+  async getAncestors(vertex, type, options) {
+    return this._traverseGraph('in', vertex, type, options);
   }
 }
 

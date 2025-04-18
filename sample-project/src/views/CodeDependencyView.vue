@@ -51,6 +51,11 @@
           </el-form-item>
         </el-col>
         <el-col :span="6">
+          <el-form-item label="Min Function Row Count">
+            <el-input-number v-model="form.minFnRowCount" :min="0" :step="1" style="width: 240px" placeholder="If > 0, function endRow - startRow must be gte it" />
+          </el-form-item>
+        </el-col>
+        <el-col :span="6">
           <el-form-item label="Depth">
             <el-input-number v-model="form.depth" :min="0" :step="1" style="width: 240px" placeholder="0 means unlimited" />
           </el-form-item>
@@ -138,6 +143,7 @@ const form = reactive({
   name: 'getAncestors',
   dependencyType: 'Function',
   depth: 0,
+  minFnRowCount: 0,
   rowNumber: 0
 })
 
@@ -155,9 +161,9 @@ const gridData = ref([]);
 async function retrieve() {
   let response;
   if (form.rowNumber > 0) {
-    response = await axios.get(`/api/graph/module-rownumber/${form.direction}?category=${form.category}&rowNumber=${form.rowNumber}&systemModule=${encodeURIComponent(form.systemModule)}&microService=${encodeURIComponent(form.microService)}&dependencyType=${encodeURIComponent(form.dependencyType)}&depth=${form.depth}`)
+    response = await axios.get(`/api/graph/module-rownumber/${form.direction}?category=${form.category}&rowNumber=${form.rowNumber}&systemModule=${encodeURIComponent(form.systemModule)}&microService=${encodeURIComponent(form.microService)}&dependencyType=${encodeURIComponent(form.dependencyType)}&depth=${form.depth}&minFnRowCount=${form.minFnRowCount}`)
   } else {
-    response = await axios.get(`/api/graph/${form.direction}?category=${form.category}&name=${encodeURIComponent(form.name)}&systemModule=${encodeURIComponent(form.systemModule)}&microService=${encodeURIComponent(form.microService)}&dependencyType=${encodeURIComponent(form.dependencyType)}&depth=${form.depth}`)
+    response = await axios.get(`/api/graph/${form.direction}?category=${form.category}&name=${encodeURIComponent(form.name)}&systemModule=${encodeURIComponent(form.systemModule)}&microService=${encodeURIComponent(form.microService)}&dependencyType=${encodeURIComponent(form.dependencyType)}&depth=${form.depth}&minFnRowCount=${form.minFnRowCount}`)
   }
   const newOptions = getTreeOptions(response.data, form.direction);
   // const newOptions = getSankeyOptions(response.data);

@@ -282,12 +282,24 @@ class Gremlin {
   _removeSubPaths(result, depth) {
     // Sample data
     // [
+    //   { "labels": [], "objects": [{ "id": "#105:0", "label": "Component" }] },
+    //   { "labels": [], "objects": [{ "id": "#105:0", "label": "Component" }, { "id": "#114:0", "label": "Component" }] },
+    //   { "result": ["#105:0", "#114:0"] }
+    // ]
+
+    // Needs conver to:
+    // [
     //   { "result": ["#105:0"] },
     //   { "result": ["#105:0", "#114:0"] },
     //   { "result": ["#105:0", "#84:0"] },
     //   { "result": ["#105:0", "#114:0", "#111:0"] },
     //   { "result": ["#105:0", "#114:0", "#111:0", "#87:0"] }
     // ]
+    result = result.map(path => {
+      return {
+        result: path.objects.map(vertex => vertex.id)
+      };
+    });
 
     // Sort the result by the length of the path
     result.sort((a, b) => a.result.length - b.result.length);
@@ -310,7 +322,7 @@ class Gremlin {
     return Array.from(uniquePaths).map(path => ({ paths: path }));
   }
 
-  async _traverseGraph(direction, vertex, type, hasSourceCode, depth) {
+  async _traverseGraph(direction, vertex, type, options) {
     let traversal = this.g.V()
       .hasLabel(_.upperFirst(vertex.category))
       .has('name', vertex.name);
@@ -325,27 +337,37 @@ class Gremlin {
       traversal = traversal.has('type', type);
       repeatCriteria = repeatCriteria.has('type', type);
     }
-    if (hasSourceCode) {
+    if (options.hasSourceCode) {
       traversal = traversal.has('sourceCode', gremlin.process.P.neq(null)).has('sourceCode', gremlin.process.P.neq(''));
       repeatCriteria = repeatCriteria.has('sourceCode', gremlin.process.P.neq(null)).has('sourceCode', gremlin.process.P.neq(''));
     }
+    // TODO
+    // if (options.minFnRowCount > 0) {
+    //   // Filter for components with minimum row count (endRow - startRow >= minFnRowCount)
+    //   // Using sack operations to calculate the difference between endRow and startRow
+    //   repeatCriteria = repeatCriteria.filter(
+    //     __.sack().assign().by(__.values('endRow'))
+    //       .sack().minus().by(__.values('startRow'))
+    //       .sack().is(gremlin.process.P.gte(options.minFnRowCount))
+    //   );
+    // }
 
     traversal = traversal.emit().repeat(repeatCriteria);
-    if (depth > 0) {
-      traversal = traversal.times(depth);
+    if (options.depth > 0) {
+      traversal = traversal.times(options.depth);
     }
     traversal = traversal.path().dedup();
 
     const result = await traversal.toList();
-    return this._removeSubPaths(result, depth);
+    return this._removeSubPaths(result, options.depth);
   }
 
-  async getDescendants(vertex, type, hasSourceCode, depth = 0) {
-    return this._traverseGraph('out', vertex, type, hasSourceCode, depth);
+  async getDescendants(vertex, type, options) {
+    return this._traverseGraph('out', vertex, type, options);
   }
 
-  async getAncestors(vertex, type, hasSourceCode, depth = 0) {
-    return this._traverseGraph('in', vertex, type, hasSourceCode, depth);
+  async getAncestors(vertex, type, options) {
+    return this._traverseGraph('in_', vertex, type, options);
   }
 }
 

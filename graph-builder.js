@@ -1,12 +1,14 @@
 import Arango from './graph-connectors/arango.js';
 import Arcadedb from './graph-connectors/arcadedb.js';
 import Gremlin from './graph-connectors/gremlin.js';
+import MongoDB from './graph-connectors/mongo.js';
 import { VERTEX_SCHEMA, VERTEX_QUERY_SCHEMA, UPDATABLE_FIELDS } from './graph-constants.js';
 
 const GRAPH_CONNECTOR_TYPES = {
   GREMLIN: Gremlin,
   ARCADEDB: Arcadedb,
-  ARANGO: Arango
+  ARANGO: Arango,
+  MONGODB: MongoDB
 };
 
 class GraphBuilder {
@@ -65,6 +67,9 @@ class GraphBuilder {
       }
 
       let parent;
+      vertex.startRow = parseInt(vertex.startRow, 10) || 0;
+      vertex.endRow = parseInt(vertex.endRow, 10) || 0;
+
       const existingVertex = await this.getVertex(vertex, sessionId);
       if (existingVertex) {
         this._updateVertexFields(existingVertex, vertex);
@@ -158,7 +163,23 @@ class GraphBuilder {
     return this.connector.getVerticesByTypesWithDescription(category, types);
   }
 
-  async getDescendants(vertex, type, hasSourceCode, depth = 0) {
+  _cleanOptions(options) {
+    if (options.minFnRowCount) {
+      options.minFnRowCount = parseInt(options.minFnRowCount, 10);
+      if (isNaN(options.minFnRowCount) || options.minFnRowCount < 0) {
+        delete options.minFnRowCount;
+      }
+    }
+    if (options.depth) {
+      options.depth = parseInt(options.depth, 10);
+      if (isNaN(options.depth) || options.depth < 0) {
+        options.depth = 0;
+      }
+    }
+    return options;
+  }
+
+  async getDescendants(vertex, type, options = { depth: 0 }) {
     // Format should be as below and the sub-paths, such as [1, 2], should not be included.
     // The paths should be the vertex identifiers.
     // [
@@ -169,11 +190,13 @@ class GraphBuilder {
 
     // If depth is 0, it means all descendants should be retrieved.
     // If depth is 1, it means only direct children should be retrieved.
-    return this.connector.getDescendants(vertex, type, hasSourceCode, depth);
+    options = this._cleanOptions(options);
+    return this.connector.getDescendants(vertex, type, options);
   }
 
-  async getAncestors(vertex, type, hasSourceCode, depth = 0) {
-    return this.connector.getAncestors(vertex, type, hasSourceCode, depth);
+  async getAncestors(vertex, type, options = { depth: 0 }) {
+    options = this._cleanOptions(options);
+    return this.connector.getAncestors(vertex, type, options);
   }
 }
 
