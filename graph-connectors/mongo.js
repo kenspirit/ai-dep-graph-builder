@@ -100,12 +100,12 @@ class MongoDB {
     }
 
     const doc = {
-      category: _.upperFirst(vertex.category),
+      category: _.lowerFirst(vertex.category),
       name: vertex.name,
       type: vertex.type
     };
 
-    switch (vertex.category) {
+    switch (doc.category) {
       case 'systemModule':
         if (!vertex.microService) {
           throw new Error('MicroService is required for systemModule vertex');
@@ -175,7 +175,7 @@ class MongoDB {
     }
 
     const result = await this.components.findOneAndUpdate(
-      { _id: vertex.id },
+      { _id: BSON.ObjectId.createFromHexString(vertex.id) },
       update,
       { returnDocument: 'after' }
     );
@@ -189,7 +189,7 @@ class MongoDB {
     }
 
     const query = {
-      category: _.upperFirst(vertex.category),
+      category: vertex.category,
       name: vertex.name
     };
 
@@ -220,7 +220,7 @@ class MongoDB {
 
   async getComponentByNameAndLanguage(name, language, systemModule) {
     const query = {
-      category: 'Component',
+      category: 'component',
       name: { $regex: name, $options: 'i' },
       language: language
     };
@@ -239,7 +239,7 @@ class MongoDB {
     }
 
     const query = {
-      category: 'Component',
+      category: 'component',
       systemModule: { $regex: systemModule, $options: 'i' },
       startRow: { $lte: rowNumber },
       endRow: { $gte: rowNumber }
@@ -251,14 +251,14 @@ class MongoDB {
 
   async getVerticesByCategory(category) {
     const results = await this.components.find({
-      category: _.upperFirst(category)
+      category
     }).toArray();
     return results.map(vertexToPojo);
   }
 
   async getVerticesByTypesWithDescription(category, types) {
     const results = await this.components.find({
-      category: _.upperFirst(category),
+      category,
       type: { $in: types },
       description: { $exists: true, $ne: null }
     }).toArray();

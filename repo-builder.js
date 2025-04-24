@@ -152,7 +152,7 @@ export class RepoBuilder {
         startRow: dependency.startRow,
         endRow: dependency.endRow,
         microService: microService,
-        type: isFunction ? 'Function' : 'Field',
+        type: isFunction ? 'Function' : _.upperFirst(dependency.type || 'Field'),
         sourceCode: isFunction ? dependency.sourceCode : '',
         dependencies: this.convertGraphComponents(fileName, language, microService, moduleDependencyMap, dependency.dependencies)
       };
