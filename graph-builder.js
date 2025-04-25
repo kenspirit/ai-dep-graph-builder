@@ -72,6 +72,11 @@ class GraphBuilder {
 
       const existingVertex = await this.getVertex(vertex, sessionId);
       if (existingVertex) {
+        if (existingVertex.startRow > 0 && vertex.startRow === 0) {
+          // If the existing vertex has a startRow, do not overwrite it
+          vertex.startRow = existingVertex.startRow;
+          vertex.endRow = existingVertex.endRow;
+        }
         this._updateVertexFields(existingVertex, vertex);
         await this.connector.updateVertex(existingVertex, sessionId);
         result.push(existingVertex);
@@ -197,6 +202,10 @@ class GraphBuilder {
   async getAncestors(vertex, type, options = { depth: 0 }) {
     options = this._cleanOptions(options);
     return this.connector.getAncestors(vertex, type, options);
+  }
+
+  async deleteAllByMicroService(microService) {
+    return this.connector.deleteAllByMicroService(microService);
   }
 }
 

@@ -34,7 +34,8 @@ function edgeToPojo(edge) {
     id: edge._id.toString(),
     label: edge.label,
     toVertexId: edge.toVertexId.toString(),
-    fromVertexId: edge.fromVertexId.toString()
+    fromVertexId: edge.fromVertexId.toString(),
+    microService: edge.microService || ''
   };
 }
 
@@ -278,7 +279,8 @@ class MongoDB {
       fromVertexCategory: fromVertex.category,
       toVertexCategory: toVertex.category,
       fromVertexType: fromVertex.type,
-      toVertexType: toVertex.type
+      toVertexType: toVertex.type,
+      microService: fromVertex.microService || ''
     };
 
     const result = await this.uses.insertOne(edge);
@@ -420,6 +422,24 @@ class MongoDB {
 
   async getAncestors(vertex, type, options) {
     return this._traverseGraph('in', vertex, type, options);
+  }
+
+  async deleteAllByMicroService(microService) {
+    // Delete all edges connected to components in this microservice
+    await this.uses.deleteMany({ microService });
+
+    // Delete all components in the microservice
+    await this.components.deleteMany({
+      microService
+    });
+
+    // Delete the microservice itself
+    await this.components.deleteOne({
+      category: 'microService',
+      name: microService
+    });
+
+    return true;
   }
 
   async close() {
