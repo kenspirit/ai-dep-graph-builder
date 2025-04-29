@@ -12,10 +12,10 @@
         "instanceName": "memberProperty",
         "type": "method",
         "public": true,
-        "usage": "memberProperty: (data, toParse) => {\r\n    const obj = _.pick(data.toJSON(), ['a', 'b', 'c']);\r\n    if (toParse) {\r\n      obj.b = JSON.parse(data.b);\r\n    }\r\n    return obj;\r\n  }",
+        "usage": "$assignment",
         "sourceCode": "$SOURCE_CODE$",
-        "startRow": 4,
-        "endRow": 10,
+        "startRow": 3,
+        "endRow": 9,
         "dependencies": [
           {
             "module": "lodash",

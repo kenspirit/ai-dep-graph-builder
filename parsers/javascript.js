@@ -243,6 +243,9 @@ function _functionNodeHander(scopeInstanceName, node, requiredModuleDependencies
   if (identifier && node.type !== 'arrow_function') {
     identifier = identifier.text;
   } else {
+    // When one anonymous function is defined in a file/class, the scopeInstanceName should be set as the file name or class name
+    // If one anonymous function is defined directly as exported property, the scopeInstanceName will be set as this property name
+    // e.g. module.exports.memberProperty = (data, toParse) => { ... };
     identifier = '';
   }
 
@@ -278,7 +281,8 @@ function _memberExpressionHandler(scopeInstanceName, node, requiredModuleDepende
     '.' +
     _walkAndBuildDependency(scopeInstanceName, node.children[2], requiredModuleDependencies, instanceAndfunctionDependencies, level + 1, localScopeVariables)[0];
 
-  if (!localScopeVariables.includes(dependentIdentifer.split('.')[0])) {
+  const topLevel = dependentIdentifer.split('.')[0];
+  if (!localScopeVariables.includes(topLevel)) {
     _captureDependencyWithScope(scopeInstanceName, dependentIdentifer, instanceAndfunctionDependencies, node, level);
   }
 
@@ -346,10 +350,12 @@ const OPERATORS_OR_KEYWORDS = ['{', '}', ',', ';', '@', 'export', 'return', 'awa
 
 function _moduleExportHandler(scopeInstanceName, node, requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables) {
   const children = node.children;
-  const exportValueIdentifiers = _walkAndBuildDependency('', children[2], requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables);
+  const leftValueNode = children[0];
+  const rightValueNode = children[2];
 
-  if (children[0].text === 'module.exports') {
+  if (leftValueNode.text === 'module.exports') {
     // module.exports = Parser / { ... };
+    const exportValueIdentifiers = _walkAndBuildDependency('', children[2], requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables);
     for (const identifier of exportValueIdentifiers) {
       const dependency = _captureDependency(instanceAndfunctionDependencies, identifier);
       dependency.$public = true;
@@ -364,30 +370,44 @@ function _moduleExportHandler(scopeInstanceName, node, requiredModuleDependencie
   } else {
     // module.exports.Query = Query;
     // module.exports.Query = DifferentName;
-    const exportedFieldIdentifier = children[0].text.replace('module.exports.', '');
-
+    // module.exports.Query = { ... };
+    // module.exports.Query = () => { ... };
+    const exportedFieldIdentifier = leftValueNode.text.replace('module.exports.', '');
     const dependency = _captureDependency(instanceAndfunctionDependencies, exportedFieldIdentifier);
+
     if (dependency.$module) {
       // If module is already defined, then it's a re-assignment
       dependency[exportedFieldIdentifier] = { $name: exportedFieldIdentifier, $module: dependency.$module, $usage: '$assignment' };
-    } else if (exportValueIdentifiers.length > 1) {
-      // module.exports.Query = { ... };
-      // TODO: Rare case, exported field depends on each object key and makes them public
-      for (const identifier of exportValueIdentifiers) {
-        const objField = instanceAndfunctionDependencies[identifier];
-        if (!objField) {
-          continue;
-        }
+    } else if (['arrow_function', 'function_expression'].includes(rightValueNode.type)) {
+      // module.exports.Query = () => { ... };
+      _walkAndBuildDependency(exportedFieldIdentifier, rightValueNode, requiredModuleDependencies, dependency, level, localScopeVariables);
+      dependency.$sourceCode = rightValueNode.text;
+      dependency.$type = 'method';
+      dependency.$startRow = rightValueNode.startPosition.row + 1; // Actual # of line in the file, not 0-based
+      dependency.$endRow = rightValueNode.endPosition.row + 1;
+    } else {
+      const exportValueIdentifiers = _walkAndBuildDependency('', children[2], requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables);
 
-        dependency[identifier] = objField;
-        objField.$public = true;
-        dependency.$public = true;
-        dependency.$usage = '$assignment';
+      if (exportValueIdentifiers.length > 1) {
+        // module.exports.Query = { ... };
+        // TODO: Rare case, exported field depends on each object key and makes them public
+        for (const identifier of exportValueIdentifiers) {
+          const objField = instanceAndfunctionDependencies[identifier];
+          if (!objField) {
+            continue;
+          }
+
+          dependency[identifier] = objField;
+          objField.$public = true;
+          dependency.$public = true;
+          dependency.$usage = '$assignment';
+        }
+      } else if (exportValueIdentifiers.length === 1 && exportedFieldIdentifier !== exportValueIdentifiers[0]) {
+        // module.exports.Query = DifferentName;
+        // DifferentName should be captured in instanceAndfunctionDependencies or requiredModuleDependencies already
+        const valueName = exportValueIdentifiers[0];
+        dependency[valueName] = { $name: valueName, $public: true, $usage: '$assignment' };
       }
-    } else if (exportValueIdentifiers.length === 1 && exportedFieldIdentifier !== exportValueIdentifiers[0]) {
-      // DifferentName should be captured in instanceAndfunctionDependencies or requiredModuleDependencies already
-      const valueName = exportValueIdentifiers[0];
-      dependency[valueName] = { $name: valueName, $public: true, $usage: '$assignment' };
     }
 
     dependency.$module = '$file';
@@ -685,15 +705,19 @@ function _objectPatternHandler(scopeInstanceName, node, requiredModuleDependenci
           // The object is declared inside a function, its name should have the function name as prefix
           identifier = scopeInstanceName + '#' + identifier;
         }
+        const rightValueNode = child.children[2];
         const dependency = _captureDependency(instanceAndfunctionDependencies, identifier, child);
-        _setDependencyTypeBasedOnNodeType(dependency, child.children[2]);
+        _setDependencyTypeBasedOnNodeType(dependency, rightValueNode);
 
         // Capture dependency in advance and so no need return the identifier
-        if (['arrow_function', 'function_expression'].includes(child.children[2].type)) {
-          _walkAndBuildDependency(identifier, child.children[2], requiredModuleDependencies, dependency, level, localScopeVariables);
-          dependency.$sourceCode = child.children[2].text;
+        if (['arrow_function', 'function_expression'].includes(rightValueNode.type)) {
+          _walkAndBuildDependency(identifier, rightValueNode, requiredModuleDependencies, dependency, level, localScopeVariables);
+          dependency.$sourceCode = rightValueNode.text;
+          dependency.$type = 'method';
+          dependency.$startRow = rightValueNode.startPosition.row + 1; // Actual # of line in the file, not 0-based
+          dependency.$endRow = rightValueNode.endPosition.row + 1;
         } else {
-          _walkAndBuildDependency(scopeInstanceName, child.children[2], requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables);
+          _walkAndBuildDependency(scopeInstanceName, rightValueNode, requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables);
         }
       }
 
