@@ -4,22 +4,42 @@ import { createMessageConnection, StreamMessageReader, StreamMessageWriter } fro
 // Define the host and port where the JDT Language Server is running
 const host = '127.0.0.1';
 const port = 5036;
+const maxRetries = 5;
+const retryDelay = 2000; // 2 seconds
 
-// Create a socket connection to the JDT Language Server
-const socket = net.createConnection({ host, port }, () => {
-  console.log('Connected to JDT Language Server');
-});
+async function connectWithRetry(retries = 0) {
+  return new Promise((resolve, reject) => {
+    const socket = net.createConnection({ host, port }, () => {
+      console.log('Connected to JDT Language Server');
+      resolve(socket);
+    });
 
-// Create a message connection using the socket streams
-const connection = createMessageConnection(
-  new StreamMessageReader(socket),
-  new StreamMessageWriter(socket)
-);
+    socket.on('error', (err) => {
+      console.error(`Connection failed: ${err.message}`);
+      if (retries < maxRetries) {
+        console.log(`Retrying connection (${retries + 1}/${maxRetries})...`);
+        setTimeout(() => resolve(connectWithRetry(retries + 1)), retryDelay);
+      } else {
+        reject(new Error('Max retries reached. Unable to connect.'));
+      }
+    });
+  });
+}
 
-// Listen for messages from the server
-connection.listen();
+let connection;
 
 async function initializeServer(rootUri) {
+  try {
+    const socket = await connectWithRetry();
+    connection = createMessageConnection(
+      new StreamMessageReader(socket),
+      new StreamMessageWriter(socket)
+    );
+    connection.listen();
+    console.log('Connection established and listening.');
+  } catch (error) {
+    console.error('Failed to establish connection:', error.message);
+  }
   return new Promise((resolve, reject) => {
     connection.sendRequest('initialize', {
       processId: process.pid,
