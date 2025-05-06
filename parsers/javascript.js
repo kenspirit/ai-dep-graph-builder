@@ -97,6 +97,11 @@ function _requireCallExpressionHandler(variableNode, assignmentNode, requiredMod
 
 function _importStatementHandler(scopeInstanceName, node, requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables) {
   const importClause = node.children[1];
+  if (importClause.type === 'import_require_clause') {
+    // import _ = require('lodash');
+    node = importClause;
+  }
+
   let source = node.childrenForFieldName('source');
   source = source[0].text.replace(/['"]/g, '');
 
@@ -478,8 +483,8 @@ function _objectPairHandler(scopeInstanceName, node, requiredModuleDependencies,
 }
 
 function _classDeclarationHandler(scopeInstanceName, node, requiredModuleDependencies, instanceAndfunctionDependencies, level, localScopeVariables) {
-  const className = _oneChildrenOfType(node, 'identifier').text;
-  const heritage = _oneChildrenOfType(node, 'class_heritage');
+  const className = (_oneChildrenOfType(node, 'identifier') || _oneChildrenOfType(node, 'type_identifier')).text;
+  let heritage = _oneChildrenOfType(node, 'class_heritage');
 
   // Class in JS file is a top level object
   const dependency = _captureDependency(instanceAndfunctionDependencies, className);
@@ -487,6 +492,10 @@ function _classDeclarationHandler(scopeInstanceName, node, requiredModuleDepende
   dependency.$sourceCode = node.text;
 
   if (heritage) {
+    if (heritage.children.length === 1) {
+      heritage = heritage.children[0];
+    }
+
     dependency['$heritage'] = {
       $usage: `${heritage.children[0].text}`,
       $parent: heritage.children[1].text
@@ -504,7 +513,7 @@ function _classDeclarationHandler(scopeInstanceName, node, requiredModuleDepende
     let identifier;
     let isPrivate = false;
 
-    if (child.type === 'method_definition' || child.type === 'field_definition') {
+    if (child.type === 'method_definition' || child.type === 'field_definition' || child.type === 'public_field_definition') {
       let propertyName = _oneChildrenOfType(child, 'property_identifier');
       if (!propertyName) {
         propertyName = _oneChildrenOfType(child, 'private_property_identifier');
@@ -784,6 +793,7 @@ const NODE_TYPE_HANDLERS = {
   method_definition: _functionNodeHander,
   generator_function_declaration: _functionNodeHander,
   field_definition: _generalExpressionHandler,
+  public_field_definition: _generalExpressionHandler,
   class_static_block: _generalExpressionHandler,
   assignment_expression: _assignmentExpressionHandler,
   subscript_expression: _generalExpressionHandler,
@@ -1009,6 +1019,7 @@ class AstParser {
   constructor() {
     this.parser = new Parser();
     this.parser.setLanguage(JavaScript);
+    this.handlers = NODE_TYPE_HANDLERS;
   }
 
   parse(code) {

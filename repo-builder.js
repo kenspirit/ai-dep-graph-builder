@@ -27,7 +27,18 @@ export class RepoBuilder {
   }
 
   getLanguage(fileSuffix) {
-    return fileSuffix === 'js' ? 'javascript' : fileSuffix;
+    switch (fileSuffix) {
+      case 'js':
+        return 'javascript';
+      case 'ts':
+        return 'typescript';
+      case 'py':
+        return 'python';
+      case 'rb':
+        return 'ruby';
+      default:
+        return fileSuffix;
+    }
   }
 
   async buildGraph(parsedDirOrFile) {
