@@ -873,6 +873,8 @@ function _captureDependencyWithScope(scopeInstanceName, dependentIdentifer, inst
   } else if (['call_expression'].includes(node.type) && !_.endsWith(dependency[dependentIdentifer].$usage, ')')) {
     dependency[dependentIdentifer].$usage = `${dependency[dependentIdentifer].$usage}()`;
     dependency[dependentIdentifer].$type = 'method';
+  } else if (node.children && node.children.length > 0 && node.children[0].type === 'regex') {
+    dependency[dependentIdentifer].$type = 'regex';
   }
 
   return dependency;
@@ -970,8 +972,11 @@ function _convertDependencyStructure(node, requiredModuleDependencies, instanceA
   } else if (dependencyName !== topLevelName) {
     // Expected to be JS internal module, such as Buffer, String, etc
     // Local variable should not be captured and passed here.
-    dependency.module = topLevelName;
+    dependency.module = node.$type === 'regex' ? 'RegExp' : topLevelName;
     dependency.instanceName = dependencyName.replace(`${topLevelName}.`, '');
+    if (dependency.$type === 'regex') {
+      dependency.sourceCode = node.text; // regex text
+    }
   } else if (dependency.type === 'constructor' && !node.$module) {
     // Should be JS internal module, such as Buffer, String, etc
     dependency.module = dependency.instanceName;
