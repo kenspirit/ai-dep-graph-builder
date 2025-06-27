@@ -121,7 +121,7 @@ export class RepoBuilder {
         continue;
       }
 
-      console.log(`========== Dependencies built for ${filePath} ===========\n`);
+      console.log(`========== Building dependencies for ${filePath} ===========\n`);
       try {
         let relativePath = filePath.replace(rootDir + path.sep, '').replace(/\\/g, '/');
         if (!relativePath.startsWith('/')) {
@@ -142,7 +142,7 @@ export class RepoBuilder {
           await this.persistVertex(dependency);
         }
       } catch (e) {
-        console.error(`Error while building dependencies for ${filePath}`, e);
+        console.error(`Failed to build dependencies for ${filePath}\n`, e);
         continue;
       }
     }

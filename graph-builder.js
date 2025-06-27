@@ -2,13 +2,15 @@ import Arango from './graph-connectors/arango.js';
 import Arcadedb from './graph-connectors/arcadedb.js';
 import Gremlin from './graph-connectors/gremlin.js';
 import MongoDB from './graph-connectors/mongo.js';
+import PGSQL from './graph-connectors/pgsql.js';
 import { VERTEX_SCHEMA, VERTEX_QUERY_SCHEMA, UPDATABLE_FIELDS } from './graph-constants.js';
 
 const GRAPH_CONNECTOR_TYPES = {
   GREMLIN: Gremlin,
   ARCADEDB: Arcadedb,
   ARANGO: Arango,
-  MONGODB: MongoDB
+  MONGODB: MongoDB,
+  PGSQL: PGSQL
 };
 
 class GraphBuilder {
